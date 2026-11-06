@@ -1,4 +1,5 @@
 import './styles/main.css';
+import { productUrl, products } from './data/products';
 import { initSmoothScroll } from './lib/smooth-scroll';
 import { notFoundPage } from './pages/not-found';
 import { productPage } from './pages/product';
@@ -14,7 +15,9 @@ new Router(
   view,
   [
     { path: /^\/perfumy\/([a-z0-9-]+)\/?$/, page: ([slug]) => productPage(slug) },
-    { path: /^\/(?:perfumy\/?)?$/, page: () => stubPage() },
+    // Etap 1: bez strony głównej – start od pierwszego zapachu. Do podmiany w etapie 2.
+    { path: /^\/$/, page: () => productUrl(products[0]) },
+    { path: /^\/perfumy\/?$/, page: () => stubPage() },
   ],
   notFoundPage,
 ).start();

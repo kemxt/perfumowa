@@ -12,7 +12,8 @@ export interface Page {
 
 export interface Route {
   path: RegExp;
-  page: (params: string[]) => Page;
+  /** Strona albo ścieżka, na którą przekierować (bez wpisu w historii). */
+  page: (params: string[]) => Page | string;
 }
 
 const HEADER_OFFSET = -96;
@@ -67,7 +68,7 @@ export class Router {
     this.navigate(url.href);
   };
 
-  private resolve(pathname: string): Page {
+  private resolve(pathname: string): Page | string {
     for (const route of this.routes) {
       const match = pathname.match(route.path);
       if (match) return route.page(match.slice(1).map(decodeURIComponent));
@@ -76,13 +77,18 @@ export class Router {
   }
 
   private async render(pathname: string, initial: boolean): Promise<void> {
+    const page = this.resolve(pathname);
+    if (typeof page === 'string') {
+      history.replaceState(null, '', `${page}${window.location.search}${window.location.hash}`);
+      return this.render(page, initial);
+    }
+
     const token = ++this.token;
     this.current?.unmount();
     this.current = null;
     this.view.replaceChildren();
     scrollToTop();
 
-    const page = this.resolve(pathname);
     this.current = page;
     document.title = page.title;
     setHeader();
