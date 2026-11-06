@@ -1,0 +1,21 @@
+{
+  "CYL_TOP": 0.5,
+  "CYL_BOT": 0.76,
+  "CYL_WIDTH": 0.44,
+  "CYL_X": 0.5,
+  "CURV": 1,
+  "TILT": 3,
+  "ARC": 180,
+  "GAP": 0.12,
+  "LIGHT_X": -2.4,
+  "LIGHT_Y": 1.2,
+  "LIGHT_Z": 3,
+  "LIGHT_INT": 2.1,
+  "AMBIENT": 1.5,
+  "ROUGHNESS": 0.7,
+  "GLINT_INT": 0.32,
+  "GLINT_WIDTH": 0.028,
+  "GLINT_SPEED": 1,
+  "GLINT_POS": -0.15,
+  "GLINT_PAD": 0.06
+}

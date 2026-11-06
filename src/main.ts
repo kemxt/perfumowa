@@ -1,0 +1,21 @@
+import './styles/main.css';
+import { initSmoothScroll } from './lib/smooth-scroll';
+import { notFoundPage } from './pages/not-found';
+import { productPage } from './pages/product';
+import { stubPage } from './pages/stub';
+import { Router } from './router';
+
+initSmoothScroll();
+
+const view = document.getElementById('view');
+if (!view) throw new Error('Brak #view w index.html');
+
+new Router(
+  view,
+  [
+    { path: /^\/perfumy\/([a-z0-9-]+)\/?$/, page: ([slug]) => productPage(slug) },
+    { path: /^\/(?:perfumy\/?)?$/, page: () => stubPage() },
+  ],
+  notFoundPage,
+).start();
+
