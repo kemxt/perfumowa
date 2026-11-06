@@ -3,7 +3,7 @@ import { BottleLabel } from '../lib/bottle-label';
 import { esc } from '../lib/dom';
 
 interface BottleMarkupOptions {
-  variant: 'hero' | 'card' | 'config';
+  variant: 'hero' | 'card' | 'buy';
   alt?: string;
   eager?: boolean;
 }

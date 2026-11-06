@@ -1,9 +1,9 @@
 import type { Product } from '../data/products';
 import { esc, pad2 } from '../lib/dom';
 
-const ARROW = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M4 12h15m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`;
+const CHEVRON = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`;
 
-export function galleryMarkup(product: Product, titleId: string, heading = { eyebrow: 'Galeria', title: 'Galeria' }): string {
+export function galleryMarkup(product: Product, titleId: string): string {
   const images = product.media.gallery;
   const total = pad2(images.length);
   return `
@@ -19,13 +19,12 @@ export function galleryMarkup(product: Product, titleId: string, heading = { eye
           .join('')}
       </div>
       <div class="gallery__aside">
-        <p class="eyebrow">${esc(heading.eyebrow)}</p>
-        <h2 id="${titleId}" class="title">${esc(heading.title)}</h2>
+        <h2 id="${titleId}" class="label">Galeria</h2>
         <p class="gallery__caption" data-caption>${esc(images[0]?.alt ?? '')}</p>
         <div class="gallery__controls">
-          <button type="button" class="icon-btn icon-btn--prev" data-prev aria-label="Poprzednie zdjęcie">${ARROW}</button>
+          <button type="button" class="icon-btn icon-btn--prev" data-prev aria-label="Poprzednie zdjęcie">${CHEVRON}</button>
           <p class="gallery__count" aria-hidden="true"><span data-current>01</span><span class="gallery__total"> / ${total}</span></p>
-          <button type="button" class="icon-btn" data-next aria-label="Następne zdjęcie">${ARROW}</button>
+          <button type="button" class="icon-btn" data-next aria-label="Następne zdjęcie">${CHEVRON}</button>
         </div>
         <div class="gallery__thumbs" role="group" aria-label="Miniatury">
           ${images
@@ -37,7 +36,7 @@ export function galleryMarkup(product: Product, titleId: string, heading = { eye
             )
             .join('')}
         </div>
-        <p class="gallery__hint"><kbd>←</kbd> <kbd>→</kbd> przewijanie zdjęć</p>
+        <p class="gallery__hint">Zdjęcia możesz też przełączać strzałkami <kbd>←</kbd> <kbd>→</kbd></p>
       </div>
       <p class="visually-hidden" aria-live="polite" data-live></p>
     </div>`;

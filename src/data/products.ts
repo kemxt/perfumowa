@@ -20,18 +20,13 @@ export interface Product {
   year: number;
   perfumer: string;
   description: string[];
-  /** Trzy przymiotniki do sekcji „Charakter”, np. „Zielony. Mleczny. Ciepły.” */
-  motto: string;
-  /** Hasło ostatniego rozdziału hero. */
-  signature: string;
-  specs: { longevity: string; sillage: string; season: string; occasion: string };
+  /** Jedno–dwa zdania o każdej warstwie – pokazywane w przypiętym hero. */
+  story: { top: string; heart: string; base: string };
   notes: { top: string[]; heart: string[]; base: string[] };
   sizes: ProductSize[];
-  /**
-   * accent – kolor zapachu na ciemnym tle (kropki, aktywne stany, poświata; kontrast ≥ 4.5:1 z #0B0C0F).
-   * bg/fg – kafel produktu (karty, galeria). liquid/paper/ink/cap – tylko dla placeholderów.
-   */
-  palette: { accent: string; bg: string; fg: string; liquid: string; paper: string; ink: string; cap: string };
+  specs: { longevity: string; sillage: string; season: string; occasion: string };
+  /** Kolory placeholderów (flakon, etykieta, galeria). Interfejs strony jest monochromatyczny. */
+  palette: { bg: string; fg: string; liquid: string; paper: string; ink: string; cap: string };
   media: { bottle: string; label: string; gallery: GalleryImage[] };
   /** Kalibracja etykiety 3D (nadpisuje defaults.json). Wartości z panelu ?debug. */
   labelConfig?: Partial<LabelConfig>;

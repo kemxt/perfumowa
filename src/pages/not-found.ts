@@ -4,16 +4,26 @@ import type { Page } from '../router';
 
 export function notFoundPage(): Page {
   return {
-    title: 'Nie znaleziono | Perfumowa Aura',
+    title: 'Nie znaleziono strony | Perfumowa Aura',
     mount(view) {
       view.innerHTML = `
-      <main id="main" class="simple-page grid" tabindex="-1">
+      <main id="main" class="simple-page grid surface-dark" tabindex="-1">
         <div class="simple-page__inner">
-          <p class="eyebrow">404</p>
-          <h1 class="simple-page__title">Ten zapach się ulotnił</h1>
-          <p class="simple-page__text">Nie znaleźliśmy tej strony. Może któryś z naszych zapachów?</p>
-          <ul class="simple-page__list">
-            ${products.map((p) => `<li><a href="${productUrl(p)}">${esc(p.name)}</a></li>`).join('')}
+          <p class="label">Błąd 404</p>
+          <h1 class="t-display">Nie znaleziono strony</h1>
+          <p class="simple-page__text">Adres mógł się zmienić albo strona została usunięta. Wybierz jeden z zapachów poniżej.</p>
+          <ul class="product-list">
+            ${products
+              .map(
+                (p) => `
+              <li>
+                <a href="${productUrl(p)}">
+                  <span class="product-list__name">${esc(p.name)}</span>
+                  <span class="product-list__meta">${esc(p.tagline)}</span>
+                </a>
+              </li>`,
+              )
+              .join('')}
           </ul>
         </div>
       </main>`;

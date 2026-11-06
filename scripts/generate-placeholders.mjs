@@ -299,7 +299,8 @@ function bottleSVG(product, defaults) {
 // Etykieta
 // ---------------------------------------------------------------------------
 
-function labelSVG(product, defaults) {
+/** Etykieta jako części: { W, H, defs, body } – do pliku i do osadzenia w zdjęciach galerii. */
+function labelParts(product, defaults, id = 'label') {
   const { cfg, D } = bottleGeometry(product, defaults);
   const labelH = (cfg.CYL_BOT - cfg.CYL_TOP) * IMG_H;
   const span = 1 - cfg.GAP;
@@ -411,19 +412,25 @@ function labelSVG(product, defaults) {
   const code = `590${String(hash(product.name)).padStart(10, '0').slice(0, 10)}`;
   add(textPath(FONTS.sans, code, { x: infoX, y: bcTop + bcH + 22, size: 15, anchor: 'middle', tracking: 0.18 }), 0.85);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-  <title>${product.name} – etykieta (placeholder)</title>
-  <defs>
-    <filter id="grain" x="0" y="0" width="100%" height="100%">
+  const defs = `
+    <filter id="${id}-grain" x="0" y="0" width="100%" height="100%">
       <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="${hash(product.slug) % 100}" stitchTiles="stitch"/>
       <feColorMatrix type="saturate" values="0"/>
       <feComponentTransfer><feFuncA type="table" tableValues="0 ${dark ? 0.1 : 0.07}"/></feComponentTransfer>
-    </filter>
-  </defs>
+    </filter>`;
+  const body = `
   <rect width="${W}" height="${H}" fill="${paper}"/>
-  <rect width="${W}" height="${H}" filter="url(#grain)"/>
+  <rect width="${W}" height="${H}" filter="url(#${id}-grain)"/>
   <g stroke="${ink}" opacity="0.85">${lines.join('')}</g>
-  <g fill="${ink}">${paths.join('')}</g>
+  <g fill="${ink}">${paths.join('')}</g>`;
+  return { W, H, defs, body };
+}
+
+function labelSVG(product, defaults) {
+  const { W, H, defs, body } = labelParts(product, defaults, 'label');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <title>${product.name} – etykieta (placeholder)</title>
+  <defs>${defs}</defs>${body}
 </svg>
 `;
 }
@@ -432,96 +439,110 @@ function labelSVG(product, defaults) {
 // Galeria
 // ---------------------------------------------------------------------------
 
-/** Ciemny motyw (np. Bursztynowa Noc): tło ciemniejsze niż tekst. */
-const isDark = ({ bg, fg }) => luminance(bg) < luminance(fg);
-/** Odcień tła „w głąb”: na jasnym tle ciemniej, na ciemnym jaśniej. */
-const deepen = (palette, t) => (isDark(palette) ? lighten(palette.bg, t * 0.7) : darken(palette.bg, t));
+/**
+ * Flakon z naklejoną etykietą: front rozwiniętej etykiety rzutowany na korpus
+ * (przycięty do kształtu walca widzianego lekko z góry) + cieniowanie walca.
+ * Zwraca grupę SVG w układzie zdjęcia flakonu 800×1200.
+ */
+function dressedBottle(product, defaults, id) {
+  const { defs, body, geometry } = bottleParts(product, defaults, id);
+  const label = labelParts(product, defaults, `${id}-l`);
+  const { L, R, r, sag, labelTop, labelBot } = geometry;
+  // Widoczny front: środkowe ~40% szerokości rozwiniętej etykiety.
+  const visible = label.W * 0.4;
+  const x0 = label.W / 2 - visible / 2;
+  const clip = `M${n(L)} ${n(labelTop)}A${n(r)} ${n(sag)} 0 0 0 ${n(R)} ${n(labelTop)}L${n(R)} ${n(labelBot)}A${n(r)} ${n(sag)} 0 0 1 ${n(L)} ${n(labelBot)}Z`;
+  return {
+    defs: `${defs}${label.defs}
+      <clipPath id="${id}-labelclip"><path d="${clip}"/></clipPath>
+      <linearGradient id="${id}-cyl" x1="0" x2="1" y1="0" y2="0">${stops([
+        [0, '#000', 0.42],
+        [0.1, '#000', 0.14],
+        [0.28, '#fff', 0.12],
+        [0.42, '#fff', 0.04],
+        [0.7, '#000', 0.06],
+        [0.9, '#000', 0.26],
+        [1, '#000', 0.5],
+      ])}</linearGradient>`,
+    body: `${body}
+      <g clip-path="url(#${id}-labelclip)">
+        <svg x="${n(L)}" y="${n(labelTop)}" width="${n(R - L)}" height="${n(labelBot - labelTop + sag)}" viewBox="${n(x0)} 0 ${n(visible)} ${label.H}" preserveAspectRatio="none">${label.body}</svg>
+        <rect x="${n(L)}" y="${n(labelTop - sag)}" width="${n(R - L)}" height="${n(labelBot - labelTop + 2 * sag)}" fill="url(#${id}-cyl)"/>
+      </g>`,
+    geometry,
+  };
+}
 
-function galleryStill(product, defaults) {
-  const { bg, fg, paper, ink } = product.palette;
-  const { defs, body, geometry } = bottleParts(product, defaults, 'g');
-  const { L, R, cx, labelTop, labelBot, shape } = geometry;
-  const s = 0.66;
-  const plinthTop = 1086;
-  const tx = GALLERY_W / 2 - cx * s;
-  const ty = plinthTop + 6 - shape.bottomY * s;
-  const name = product.name;
-  const nameSize = fitSize(FONTS.serif, name, (R - L) * 0.6, 54);
-  const brandSize = fitSize(FONTS.sansMedium, 'PERFUMOWA AURA', (R - L) * 0.5, 14, 0.3);
-  const labelMid = (labelTop + labelBot) / 2;
-  const stone = mix('#d9d3c8', bg, 0.18);
+const svgOpen = `<svg xmlns="http://www.w3.org/2000/svg" width="${GALLERY_W}" height="${GALLERY_H}" viewBox="0 0 ${GALLERY_W} ${GALLERY_H}">`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${GALLERY_W}" height="${GALLERY_H}" viewBox="0 0 ${GALLERY_W} ${GALLERY_H}">
+/** Packshot: flakon na jasnym tle bez szwu. */
+function packshotFront(product, defaults) {
+  const { defs, body, geometry } = dressedBottle(product, defaults, 'f');
+  const s = 1.02;
+  const floor = 1230;
+  const tx = GALLERY_W / 2 - geometry.cx * s;
+  const ty = floor - geometry.shape.bottomY * s;
+  return `${svgOpen}
   <defs>
     ${defs}
-    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">${stops([[0, lighten(bg, 0.1)], [1, bg]])}</linearGradient>
-    <linearGradient id="stone" x1="0" x2="1" y1="0" y2="0">${stops([[0, darken(stone, 0.2)], [0.3, lighten(stone, 0.2)], [1, darken(stone, 0.25)]])}</linearGradient>
-    <linearGradient id="labelShade" x1="0" x2="1" y1="0" y2="0">${stops([[0, '#000', 0.28], [0.25, '#fff', 0.08], [0.6, '#000', 0], [1, '#000', 0.4]])}</linearGradient>
-    <filter id="shadow" x="-50%" y="-200%" width="200%" height="500%"><feGaussianBlur stdDeviation="24"/></filter>
+    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">${stops([[0, '#ece9e3'], [0.62, '#e2ded7'], [1, '#d3cfc7']])}</linearGradient>
+    <radialGradient id="light" cx="0.45" cy="0.38" r="0.6">${stops([[0, '#ffffff', 0.55], [1, '#ffffff', 0]])}</radialGradient>
+    <filter id="soft" x="-50%" y="-200%" width="200%" height="500%"><feGaussianBlur stdDeviation="22"/></filter>
   </defs>
   <rect width="${GALLERY_W}" height="${GALLERY_H}" fill="url(#bg)"/>
-  <path d="M300 1500V560A300 300 0 0 1 900 560V1500Z" fill="${deepen(product.palette, 0.1)}"/>
-  <rect y="1250" width="${GALLERY_W}" height="250" fill="${deepen(product.palette, 0.18)}"/>
-  <ellipse cx="640" cy="1352" rx="300" ry="34" fill="${darken(bg, 0.65)}" opacity="0.3" filter="url(#shadow)"/>
-  <rect x="380" y="${plinthTop}" width="440" height="262" fill="url(#stone)"/>
-  <ellipse cx="600" cy="${plinthTop}" rx="220" ry="22" fill="${lighten(stone, 0.3)}"/>
-  <g transform="translate(${n(tx)} ${n(ty)}) scale(${s})">
-    ${body}
-    <rect x="${n(L)}" y="${n(labelTop)}" width="${n(R - L)}" height="${n(labelBot - labelTop)}" fill="${paper}"/>
-    <g fill="${ink}">
-      <path d="${textPath(FONTS.sansMedium, 'PERFUMOWA AURA', { x: cx, y: n(labelTop + 46), size: brandSize, anchor: 'middle', tracking: 0.3 })}"/>
-      <path d="${textPath(FONTS.serif, name, { x: cx, y: n(labelMid + nameSize * 0.3), size: nameSize, anchor: 'middle' })}"/>
-    </g>
-    <rect x="${n(L)}" y="${n(labelTop)}" width="${n(R - L)}" height="${n(labelBot - labelTop)}" fill="url(#labelShade)"/>
-  </g>
-  <path fill="${fg}" d="${textPath(FONTS.sansMedium, upper(product.family), { x: 80, y: 120, size: 20, tracking: 0.3 })}"/>
+  <rect width="${GALLERY_W}" height="${GALLERY_H}" fill="url(#light)"/>
+  <ellipse cx="${n(GALLERY_W / 2 + 30)}" cy="${floor + 14}" rx="${n(geometry.r * s * 1.6)}" ry="30" fill="#3d3a35" opacity="0.28" filter="url(#soft)"/>
+  <g transform="translate(${n(tx)} ${n(ty)}) scale(${s})">${body}</g>
 </svg>
 `;
 }
 
-function galleryNotes(product) {
-  const { bg, fg, liquid } = product.palette;
-  const dark = isDark(product.palette);
-  const note = product.notes.top[0];
-  const noteSize = fitSize(FONTS.serifItalic, note.toLowerCase(), GALLERY_W - 160, 170);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${GALLERY_W}" height="${GALLERY_H}" viewBox="0 0 ${GALLERY_W} ${GALLERY_H}">
-  <rect width="${GALLERY_W}" height="${GALLERY_H}" fill="${bg}"/>
-  <circle cx="440" cy="560" r="330" fill="${dark ? lighten(bg, 0.12) : lighten(bg, 0.32)}"/>
-  <circle cx="770" cy="790" r="270" fill="${liquid}" opacity="0.85"/>
-  <circle cx="540" cy="1010" r="160" fill="${fg}"/>
-  <circle cx="930" cy="360" r="130" fill="none" stroke="${fg}" stroke-width="2"/>
-  <path d="M120 1120C340 980 520 720 640 300" fill="none" stroke="${fg}" stroke-width="2"/>
-  <path d="M640 300C700 360 760 380 840 372" fill="none" stroke="${fg}" stroke-width="2"/>
-  <path fill="${fg}" d="${textPath(FONTS.sansMedium, 'NUTA GŁOWY', { x: 80, y: 1236, size: 20, tracking: 0.32 })}"/>
-  <path fill="${fg}" d="${textPath(FONTS.serifItalic, note.toLowerCase(), { x: 72, y: 1390, size: noteSize })}"/>
-</svg>
-`;
-}
-
-function galleryMood(product) {
-  const { bg, fg, liquid } = product.palette;
-  const night = isDark(product.palette);
-  const skyTop = night ? darken(bg, 0.55) : lighten(bg, 0.5);
-  const sun = night ? fg : lighten(liquid, 0.35);
-  const layers = [0, 1, 2, 3].map((i) => {
-    const y0 = 930 + i * 130;
-    const amp = 46 - i * 8;
-    let d = `M0 ${y0}`;
-    for (let x = 0; x <= GALLERY_W; x += 40) d += `L${x} ${n(y0 + amp * Math.sin(x / 210 + i * 1.7) + amp * 0.4 * Math.sin(x / 90 + i))}`;
-    d += `L${GALLERY_W} ${GALLERY_H}L0 ${GALLERY_H}Z`;
-    const fill = night ? darken(bg, 0.2 + i * 0.16) : mix(bg, fg, 0.18 + i * 0.2);
-    return `<path d="${d}" fill="${fill}"/>`;
-  });
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${GALLERY_W}" height="${GALLERY_H}" viewBox="0 0 ${GALLERY_W} ${GALLERY_H}">
+/** Detal: zakrętka i górna część etykiety na ciemnym tle. */
+function packshotDetail(product, defaults) {
+  const { defs, body, geometry } = dressedBottle(product, defaults, 'd');
+  const s = 2.3;
+  // kadr od zakrętki do nazwy na etykiecie
+  const focusY = (geometry.shape.capTop + geometry.labelTop + 160) / 2;
+  const tx = GALLERY_W * 0.54 - geometry.cx * s;
+  const ty = GALLERY_H * 0.5 - focusY * s;
+  return `${svgOpen}
   <defs>
-    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">${stops([[0, skyTop], [0.65, bg]])}</linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
+    ${defs}
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="0">${stops([[0, '#2a2927'], [0.55, '#191918'], [1, '#0f0f0e']])}</linearGradient>
   </defs>
-  <rect width="${GALLERY_W}" height="${GALLERY_H}" fill="url(#sky)"/>
-  <circle cx="780" cy="640" r="230" fill="${sun}" opacity="0.5" filter="url(#glow)"/>
-  <circle cx="780" cy="640" r="160" fill="${sun}"/>
-  ${layers.join('\n  ')}
-  <path fill="${night ? fg : bg}" d="${textPath(FONTS.serifItalic, product.name, { x: 80, y: 1400, size: fitSize(FONTS.serifItalic, product.name, 700, 64) })}"/>
+  <rect width="${GALLERY_W}" height="${GALLERY_H}" fill="url(#bg)"/>
+  <g transform="translate(${n(tx)} ${n(ty)}) scale(${s})">${body}</g>
+</svg>
+`;
+}
+
+/** Flakon na kamiennym bloku, tło w przygaszonym kolorze zapachu. */
+function packshotStone(product, defaults) {
+  const { defs, body, geometry } = dressedBottle(product, defaults, 's');
+  const tone = mix(product.palette.bg, '#8d8a85', 0.62);
+  const s = 0.8;
+  const blockTop = 1060;
+  const tx = GALLERY_W * 0.47 - geometry.cx * s;
+  const ty = blockTop + 4 - geometry.shape.bottomY * s;
+  const stone = '#cfc9bf';
+  return `${svgOpen}
+  <defs>
+    ${defs}
+    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">${stops([[0, lighten(tone, 0.18)], [1, darken(tone, 0.12)]])}</linearGradient>
+    <linearGradient id="stoneFace" x1="0" x2="1" y1="0" y2="0">${stops([[0, lighten(stone, 0.12)], [0.7, stone], [1, darken(stone, 0.18)]])}</linearGradient>
+    <filter id="soft" x="-50%" y="-200%" width="200%" height="500%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="stoneGrain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.6 0.05" numOctaves="3" seed="7"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="table" tableValues="0 0.16"/></feComponentTransfer>
+    </filter>
+  </defs>
+  <rect width="${GALLERY_W}" height="${GALLERY_H}" fill="url(#bg)"/>
+  <ellipse cx="${n(GALLERY_W * 0.55)}" cy="${blockTop + 6}" rx="${n(geometry.r * s * 1.9)}" ry="18" fill="#1d1b18" opacity="0.32" filter="url(#soft)"/>
+  <rect x="190" y="${blockTop}" width="820" height="${GALLERY_H - blockTop}" fill="url(#stoneFace)"/>
+  <rect x="190" y="${blockTop}" width="820" height="${GALLERY_H - blockTop}" filter="url(#stoneGrain)"/>
+  <rect x="190" y="${blockTop}" width="820" height="3" fill="#ffffff" opacity="0.35"/>
+  <g transform="translate(${n(tx)} ${n(ty)}) scale(${s})">${body}</g>
 </svg>
 `;
 }
@@ -547,7 +568,7 @@ const jobs = [];
 for (const product of products) {
   jobs.push([product.media.bottle, () => bottleSVG(product, defaults)]);
   jobs.push([product.media.label, () => labelSVG(product, defaults)]);
-  const builders = [galleryStill, galleryNotes, galleryMood];
+  const builders = [packshotFront, packshotDetail, packshotStone];
   for (const [i, item] of product.media.gallery.entries()) {
     const build = builders[i % builders.length];
     jobs.push([item.src, () => build(product, defaults)]);

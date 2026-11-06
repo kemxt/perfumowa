@@ -13,14 +13,14 @@ const STEP_BUTTON = 1 / 8;
 const TILT_STEP = 3;
 const TILT_MAX = 12;
 
-const ICON_LEFT = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const ICON_RIGHT = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4.5h-4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ICON_LEFT = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`;
+const ICON_RIGHT = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`;
 
 export function rotatorControlsMarkup(id: string): string {
   return `
     <div class="rotator" role="group" aria-label="Obracanie flakonu">
       <button type="button" class="rotator__btn" data-rot="left" aria-label="Obróć w lewo">${ICON_LEFT}</button>
-      <button type="button" class="rotator__reset" data-rot="reset">Reset</button>
+      <span class="rotator__hint" aria-hidden="true">Przeciągnij, aby obrócić</span>
       <button type="button" class="rotator__btn" data-rot="right" aria-label="Obróć w prawo">${ICON_RIGHT}</button>
     </div>
     <p class="visually-hidden" id="${id}">Użyj strzałek w lewo i w prawo, aby obrócić flakon, w górę i w dół, aby go pochylić, oraz klawisza Home, aby przywrócić widok. Możesz też przeciągnąć flakon w bok.</p>`;

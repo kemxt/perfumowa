@@ -9,14 +9,14 @@ export function productCardMarkup(product: Product, headingLevel: 2 | 3 = 3): st
   const from = Math.min(...product.sizes.map((s) => s.price));
   const h = `h${headingLevel}`;
   return `
-    <article class="card" data-card="${esc(product.slug)}" style="--card-bg:${product.palette.bg};--card-fg:${product.palette.fg}">
+    <article class="card" data-card="${esc(product.slug)}">
       <a class="card__link" href="${productUrl(product)}">
         <div class="card__stage">
-          ${bottleMarkup(product, { variant: 'card' })}
+          ${bottleMarkup(product, { variant: 'card', alt: '' })}
         </div>
         <div class="card__body">
           <${h} class="card__title">${esc(product.name)}</${h}>
-          <p class="card__family">${esc(product.family)}</p>
+          <p class="card__meta">${esc(product.concentration)} · ${esc(product.family.toLocaleLowerCase('pl'))}</p>
           <p class="card__price">od ${formatPrice(from)}</p>
         </div>
       </a>

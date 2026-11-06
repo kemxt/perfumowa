@@ -1,5 +1,4 @@
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { setHeader } from './components/header';
 import { scrollToElement, scrollToTop } from './lib/smooth-scroll';
 
 export interface Page {
@@ -16,7 +15,7 @@ export interface Route {
   page: (params: string[]) => Page | string;
 }
 
-const HEADER_OFFSET = -96;
+const HEADER_OFFSET = -64;
 
 export class Router {
   private current: Page | null = null;
@@ -91,7 +90,6 @@ export class Router {
 
     this.current = page;
     document.title = page.title;
-    setHeader();
     await page.mount(this.view);
     if (token !== this.token) return;
 
