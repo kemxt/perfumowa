@@ -12,11 +12,13 @@
  * Istniejących plików nie nadpisuje – użyj --force, żeby wygenerować wszystko od nowa.
  * Tekst zamieniany jest na ścieżki (opentype.js): SVG wczytany jako <img> lub tekstura
  * nie ma dostępu do web fontów strony.
+ *
+ * opentype.js i fonty (devDependencies) ładujemy tylko, gdy czegoś brakuje – build
+ * w CI z kompletem plików w repo nie potrzebuje ich wcale.
  */
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import opentype from 'opentype.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FORCE = process.argv.includes('--force');
@@ -40,7 +42,7 @@ const INCI =
 // Fonty i tekst → ścieżki
 // ---------------------------------------------------------------------------
 
-async function loadFamily(pkg, weight, style = 'normal') {
+async function loadFamily(opentype, pkg, weight, style = 'normal') {
   // Fontsource dzieli fonty na subsety; polskie znaki (ą, ę, ł…) są w latin-ext.
   const fonts = [];
   for (const subset of ['latin', 'latin-ext']) {
@@ -51,12 +53,18 @@ async function loadFamily(pkg, weight, style = 'normal') {
   return fonts;
 }
 
-const FONTS = {
-  serif: await loadFamily('cormorant-garamond', 500),
-  serifItalic: await loadFamily('cormorant-garamond', 500, 'italic'),
-  sans: await loadFamily('jost', 400),
-  sansMedium: await loadFamily('jost', 500),
-};
+/** Uzupełniane przez loadFonts() tuż przed pierwszym generowanym plikiem. */
+const FONTS = {};
+
+async function loadFonts() {
+  const { default: opentype } = await import('opentype.js');
+  Object.assign(FONTS, {
+    serif: await loadFamily(opentype, 'cormorant-garamond', 500),
+    serifItalic: await loadFamily(opentype, 'cormorant-garamond', 500, 'italic'),
+    sans: await loadFamily(opentype, 'jost', 400),
+    sansMedium: await loadFamily(opentype, 'jost', 500),
+  });
+}
 
 function layoutText(fonts, text, size, tracking = 0) {
   const glyphs = [];
@@ -531,37 +539,40 @@ async function exists(file) {
   }
 }
 
-let written = 0;
-let skipped = 0;
-
-async function emit(publicPath, build) {
-  if (!publicPath?.startsWith('/assets/')) return;
-  const file = path.join(ROOT, 'public', publicPath);
-  if (!FORCE && (await exists(file))) {
-    skipped++;
-    return;
-  }
-  if (!file.endsWith('.svg')) {
-    console.warn(`  ! brak pliku ${publicPath} – placeholdery generuję tylko jako .svg`);
-    return;
-  }
-  await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, build());
-  written++;
-  console.log(`  + ${publicPath}`);
-}
-
 const products = JSON.parse(await readFile(path.join(ROOT, 'src/data/products.json'), 'utf8'));
 const defaults = JSON.parse(await readFile(path.join(ROOT, 'src/lib/bottle-label/defaults.json'), 'utf8'));
 
+/** Lista plików do wygenerowania: [ścieżka publiczna, funkcja budująca SVG]. */
+const jobs = [];
 for (const product of products) {
-  await emit(product.media.bottle, () => bottleSVG(product, defaults));
-  await emit(product.media.label, () => labelSVG(product, defaults));
+  jobs.push([product.media.bottle, () => bottleSVG(product, defaults)]);
+  jobs.push([product.media.label, () => labelSVG(product, defaults)]);
   const builders = [galleryStill, galleryNotes, galleryMood];
   for (const [i, item] of product.media.gallery.entries()) {
     const build = builders[i % builders.length];
-    await emit(item.src, () => build(product, defaults));
+    jobs.push([item.src, () => build(product, defaults)]);
   }
 }
 
-console.log(`placeholdery: ${written} wygenerowanych, ${skipped} istniejących pominięto${FORCE ? '' : ' (--force nadpisuje)'}`);
+const pending = [];
+let skipped = 0;
+for (const [publicPath, build] of jobs) {
+  if (!publicPath?.startsWith('/assets/')) continue;
+  const file = path.join(ROOT, 'public', publicPath);
+  if (!FORCE && (await exists(file))) {
+    skipped++;
+  } else if (!file.endsWith('.svg')) {
+    console.warn(`  ! brak pliku ${publicPath} – placeholdery generuję tylko jako .svg`);
+  } else {
+    pending.push([publicPath, file, build]);
+  }
+}
+
+if (pending.length) await loadFonts();
+for (const [publicPath, file, build] of pending) {
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, build());
+  console.log(`  + ${publicPath}`);
+}
+
+console.log(`placeholdery: ${pending.length} wygenerowanych, ${skipped} istniejących pominięto${FORCE ? '' : ' (--force nadpisuje)'}`);

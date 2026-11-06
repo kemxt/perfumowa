@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Musi być identyczna z nazwą Workera w panelu Cloudflare (Workers Builds tego wymaga).
+  "name": "perfumowa",
+  "compatibility_date": "2026-11-01",
+  // Worker bez własnego kodu: serwuje wyłącznie zbudowaną stronę z ./dist.
+  "assets": {
+    "directory": "./dist",
+    // SPA: nieznane ścieżki (np. /perfumy/figowy-sad) dostają index.html, routing robi przeglądarka.
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

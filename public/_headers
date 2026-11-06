@@ -1,0 +1,15 @@
+# Cloudflare Workers Static Assets – nagłówki HTTP.
+
+# Pliki z hashem w nazwie (JS/CSS z Vite) – można je trzymać w cache na zawsze.
+/_app/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Zdjęcia flakonów, etykiety, galeria – bez hasha, więc krótszy cache (podmiana pliku = nowa wersja w ciągu godziny).
+/assets/*
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  X-Frame-Options: SAMEORIGIN
