@@ -1,15 +1,55 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   // Musi być identyczna z nazwą Workera w panelu Cloudflare (Workers Builds tego wymaga).
+  // Konto: Tomex9989@gmail.com's Account; domena perfumowaaura.com jest podpięta w panelu Cloudflare.
   "name": "perfumowa",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-11-01",
-  // Worker bez własnego kodu: serwuje wyłącznie zbudowaną stronę z ./dist.
   "assets": {
     "directory": "./dist",
     // SPA: nieznane ścieżki (np. /perfumy/figowy-sad) dostają index.html, routing robi przeglądarka.
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // API i zdjęcia wgrane w panelu obsługuje kod Workera; reszta to pliki z ./dist (także /admin/).
+    "run_worker_first": ["/api/*", "/media/*"]
   },
+  // Baza produktów (bez database_id – wrangler znajduje ją po nazwie). Schemat: `npm run db:migrate:remote`.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "perfumowa",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // Zdjęcia i pliki wgrane w panelu admina.
+  "kv_namespaces": [
+    {
+      "binding": "MEDIA",
+      "id": "e87801eb02754e4dbe8c97878ef3aca7"
+    }
+  ],
   "observability": {
     "enabled": true
+  },
+  "env": {
+    // Wersja testowa: `npx wrangler deploy --env test` → perfumowa-test.tomex9989.workers.dev.
+    // Ta sama baza i te same zdjęcia co produkcja, bez domeny perfumowaaura.com.
+    "test": {
+      "name": "perfumowa-test",
+      "routes": [],
+      "workers_dev": true,
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "perfumowa",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "MEDIA",
+          "id": "e87801eb02754e4dbe8c97878ef3aca7"
+        }
+      ]
+    }
   }
 }

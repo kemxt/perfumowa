@@ -710,10 +710,19 @@ kbd {
   transition-delay: 0s;
 }
 
+.gallery picture {
+  display: contents;
+}
+
 .gallery__slide img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Wycięty flakon na przezroczystym tle – cały, bez kadrowania. */
+.gallery__slide--cutout img {
+  object-fit: contain;
 }
 
 .gallery__aside {
@@ -1226,6 +1235,15 @@ kbd {
 
 .product-list {
   margin-top: 2.5rem;
+}
+
+/* Grupy według kategorii z panelu. */
+.product-group {
+  margin-top: 3rem;
+}
+
+.product-group .product-list {
+  margin-top: 1rem;
 }
 
 .product-list li {

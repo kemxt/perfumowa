@@ -7,6 +7,8 @@
     <meta name="description" content="Perfumowa Aura – perfumy niszowe komponowane i rozlewane w Krakowie. Figa, sól, bursztyn, bez, kadzidło i gorzka pomarańcza." />
     <meta name="theme-color" content="#111110" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- Katalog z bazy pobierany równolegle z JS (src/data/products.ts). -->
+    <link rel="preload" href="/api/catalog" as="fetch" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -39,7 +41,8 @@
         </div>
         <nav class="site-footer__col site-footer__col--products" aria-label="Zapachy">
           <h2 class="label">Zapachy</h2>
-          <ul>
+          <!-- Lista z bazy podmieniana w src/main.ts; poniższa działa bez JS. -->
+          <ul data-footer-products>
             <li><a href="/perfumy/figowy-sad">Figowy Sad</a></li>
             <li><a href="/perfumy/sol-i-jalowiec">Sól i Jałowiec</a></li>
             <li><a href="/perfumy/bursztynowa-noc">Bursztynowa Noc</a></li>

@@ -41,6 +41,17 @@ export function scrollToY(y: number): void {
   else window.scrollTo({ top: y, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
 }
 
+/** Blokada przewijania strony pod panelem (np. koszyk). */
+export function lockScroll(): void {
+  lenis?.stop();
+  document.documentElement.classList.add('is-scroll-locked');
+}
+
+export function unlockScroll(): void {
+  lenis?.start();
+  document.documentElement.classList.remove('is-scroll-locked');
+}
+
 export function scrollToElement(target: HTMLElement, offset = 0): void {
   if (lenis) {
     lenis.scrollTo(target, { offset });

@@ -1,12 +1,12 @@
 import { gsap } from 'gsap';
-import { formatPrice, getProduct, productUrl, type Product } from '../data/products';
+import { formatPrice, fromPrice, getProduct, productUrl, type Product } from '../data/products';
 import type { BottleLabel } from '../lib/bottle-label';
 import { esc } from '../lib/dom';
 import { prefersReducedMotion } from '../lib/motion';
 import { bottleMarkup, mountBottle } from './bottle';
 
 export function productCardMarkup(product: Product, headingLevel: 2 | 3 = 3): string {
-  const from = Math.min(...product.sizes.map((s) => s.price));
+  const from = fromPrice(product);
   const h = `h${headingLevel}`;
   return `
     <article class="card" data-card="${esc(product.slug)}">

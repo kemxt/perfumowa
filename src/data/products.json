@@ -3,10 +3,16 @@
     "slug": "figowy-sad",
     "name": "Figowy Sad",
     "tagline": "Zielona figa na ciepłym, drzewnym tle.",
+    "mood": "Jak popołudnie w śródziemnomorskim ogrodzie.",
     "family": "Zielony · drzewny",
     "concentration": "Eau de Parfum",
     "year": 2024,
     "perfumer": "Helena Wrona",
+    "rating": {
+      "value": 4.8,
+      "count": 127,
+      "demo": true
+    },
     "description": [
       "Figowy Sad zaczyna się od zielonego, lekko gorzkiego liścia figi i bergamotki. Po kilkunastu minutach pojawia się mleko figowe i jaśmin, a zapach robi się kremowy i miękki.",
       "Baza z cedru atlaskiego i drzewa kaszmirowego jest sucha i ciepła. Na skórze zostaje do wieczora, na ubraniach do następnego dnia."
@@ -64,18 +70,25 @@
     "media": {
       "bottle": "/assets/bottles/figowy-sad.svg",
       "label": "/assets/labels/figowy-sad.svg",
-      "gallery": [
+      "photos": [
         {
-          "src": "/assets/gallery/figowy-sad-1.svg",
-          "alt": "Flakon Figowy Sad na jasnym tle"
+          "src": "/assets/photos/figowy-sad/packshot",
+          "alt": "Flakon Figowy Sad, Eau de Parfum",
+          "width": 1200,
+          "height": 1800,
+          "cutout": true
         },
         {
-          "src": "/assets/gallery/figowy-sad-2.svg",
-          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Figowy Sad"
+          "src": "/assets/photos/figowy-sad/detail",
+          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Figowy Sad",
+          "width": 1200,
+          "height": 1500
         },
         {
-          "src": "/assets/gallery/figowy-sad-3.svg",
-          "alt": "Flakon Figowy Sad na kamiennym bloku"
+          "src": "/assets/photos/figowy-sad/stone",
+          "alt": "Flakon Figowy Sad na kamiennym bloku",
+          "width": 1200,
+          "height": 1500
         }
       ]
     },
@@ -93,10 +106,16 @@
     "slug": "sol-i-jalowiec",
     "name": "Sól i Jałowiec",
     "tagline": "Morska sól i żywiczny jałowiec.",
+    "mood": "Jak poranny spacer brzegiem morza.",
     "family": "Aromatyczny · morski",
     "concentration": "Eau de Parfum",
     "year": 2023,
     "perfumer": "Jan Ostoja",
+    "rating": {
+      "value": 4.7,
+      "count": 89,
+      "demo": true
+    },
     "description": [
       "Klif nad morzem o świcie: kryształki soli, szałwia rosnąca między kamieniami i ciemne jagody jałowca o żywicznym, lekko ginowym zapachu.",
       "Wetiweria i ambroksan dają bazie ciepło nagrzanego drewna. Zapach jest przejrzysty i mineralny, ale nie zimny."
@@ -154,18 +173,25 @@
     "media": {
       "bottle": "/assets/bottles/sol-i-jalowiec.svg",
       "label": "/assets/labels/sol-i-jalowiec.svg",
-      "gallery": [
+      "photos": [
         {
-          "src": "/assets/gallery/sol-i-jalowiec-1.svg",
-          "alt": "Flakon Sól i Jałowiec na jasnym tle"
+          "src": "/assets/photos/sol-i-jalowiec/packshot",
+          "alt": "Flakon Sól i Jałowiec, Eau de Parfum",
+          "width": 1200,
+          "height": 1800,
+          "cutout": true
         },
         {
-          "src": "/assets/gallery/sol-i-jalowiec-2.svg",
-          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Sól i Jałowiec"
+          "src": "/assets/photos/sol-i-jalowiec/detail",
+          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Sól i Jałowiec",
+          "width": 1200,
+          "height": 1500
         },
         {
-          "src": "/assets/gallery/sol-i-jalowiec-3.svg",
-          "alt": "Flakon Sól i Jałowiec na kamiennym bloku"
+          "src": "/assets/photos/sol-i-jalowiec/stone",
+          "alt": "Flakon Sól i Jałowiec na kamiennym bloku",
+          "width": 1200,
+          "height": 1500
         }
       ]
     },
@@ -183,10 +209,16 @@
     "slug": "bursztynowa-noc",
     "name": "Bursztynowa Noc",
     "tagline": "Szafran, ciemna róża i bursztyn.",
+    "mood": "Jak zimowy wieczór w ciepłym, przyciemnionym salonie.",
     "family": "Orientalny · żywiczny",
     "concentration": "Extrait de Parfum",
     "year": 2022,
     "perfumer": "Helena Wrona",
+    "rating": {
+      "value": 4.9,
+      "count": 203,
+      "demo": true
+    },
     "description": [
       "Szafran i kardamon otwierają zapach ciepło i korzennie. W sercu ciemna róża damasceńska spotyka dymne labdanum.",
       "Z czasem kompozycja gęstnieje w balsamiczny akord wanilii, benzoesu i bursztynu. Najlepiej sprawdza się wieczorem i w chłodne dni."
@@ -244,18 +276,25 @@
     "media": {
       "bottle": "/assets/bottles/bursztynowa-noc.svg",
       "label": "/assets/labels/bursztynowa-noc.svg",
-      "gallery": [
+      "photos": [
         {
-          "src": "/assets/gallery/bursztynowa-noc-1.svg",
-          "alt": "Flakon Bursztynowa Noc na jasnym tle"
+          "src": "/assets/photos/bursztynowa-noc/packshot",
+          "alt": "Flakon Bursztynowa Noc, Extrait de Parfum",
+          "width": 1200,
+          "height": 1800,
+          "cutout": true
         },
         {
-          "src": "/assets/gallery/bursztynowa-noc-2.svg",
-          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Bursztynowa Noc"
+          "src": "/assets/photos/bursztynowa-noc/detail",
+          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Bursztynowa Noc",
+          "width": 1200,
+          "height": 1500
         },
         {
-          "src": "/assets/gallery/bursztynowa-noc-3.svg",
-          "alt": "Flakon Bursztynowa Noc na kamiennym bloku"
+          "src": "/assets/photos/bursztynowa-noc/stone",
+          "alt": "Flakon Bursztynowa Noc na kamiennym bloku",
+          "width": 1200,
+          "height": 1500
         }
       ]
     },
@@ -273,10 +312,16 @@
     "slug": "bialy-bez",
     "name": "Biały Bez",
     "tagline": "Bez, gruszka i białe piżmo.",
+    "mood": "Jak majowy ogród tuż po deszczu.",
     "family": "Kwiatowy · pudrowy",
     "concentration": "Eau de Parfum",
     "year": 2025,
     "perfumer": "Ada Lis",
+    "rating": {
+      "value": 4.6,
+      "count": 64,
+      "demo": true
+    },
     "description": [
       "Bzu nie da się wydestylować, więc jego zapach odtworzyliśmy z konwalii, heliotropu i soczystej gruszki. Aldehydy dodają czystości świeżo wypranej bawełny.",
       "Drzewo sandałowe i białe piżmo w bazie sprawiają, że kwiaty nie znikają po godzinie. Zapach jest jasny i delikatny, ale wyraźny."
@@ -334,18 +379,25 @@
     "media": {
       "bottle": "/assets/bottles/bialy-bez.svg",
       "label": "/assets/labels/bialy-bez.svg",
-      "gallery": [
+      "photos": [
         {
-          "src": "/assets/gallery/bialy-bez-1.svg",
-          "alt": "Flakon Biały Bez na jasnym tle"
+          "src": "/assets/photos/bialy-bez/packshot",
+          "alt": "Flakon Biały Bez, Eau de Parfum",
+          "width": 1200,
+          "height": 1800,
+          "cutout": true
         },
         {
-          "src": "/assets/gallery/bialy-bez-2.svg",
-          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Biały Bez"
+          "src": "/assets/photos/bialy-bez/detail",
+          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Biały Bez",
+          "width": 1200,
+          "height": 1500
         },
         {
-          "src": "/assets/gallery/bialy-bez-3.svg",
-          "alt": "Flakon Biały Bez na kamiennym bloku"
+          "src": "/assets/photos/bialy-bez/stone",
+          "alt": "Flakon Biały Bez na kamiennym bloku",
+          "width": 1200,
+          "height": 1500
         }
       ]
     },
@@ -363,10 +415,16 @@
     "slug": "kadzidlo-i-deszcz",
     "name": "Kadzidło i Deszcz",
     "tagline": "Olibanum, irys i mokry kamień.",
+    "mood": "Jak cisza starego kościoła w deszczowy dzień.",
     "family": "Drzewny · kadzidlany",
     "concentration": "Eau de Parfum",
     "year": 2023,
     "perfumer": "Jan Ostoja",
+    "rating": {
+      "value": 4.8,
+      "count": 112,
+      "demo": true
+    },
     "description": [
       "Dym olibanum i mirry spotyka zapach deszczu na nagrzanym bruku. Elemi i czarny pieprz dodają otwarciu ostrości.",
       "Irys i cyprys nadają kompozycji chłodu, a paczula i mech dębowy głębi. Zapach jest suchy, spokojny i lekko metaliczny."
@@ -424,18 +482,25 @@
     "media": {
       "bottle": "/assets/bottles/kadzidlo-i-deszcz.svg",
       "label": "/assets/labels/kadzidlo-i-deszcz.svg",
-      "gallery": [
+      "photos": [
         {
-          "src": "/assets/gallery/kadzidlo-i-deszcz-1.svg",
-          "alt": "Flakon Kadzidło i Deszcz na jasnym tle"
+          "src": "/assets/photos/kadzidlo-i-deszcz/packshot",
+          "alt": "Flakon Kadzidło i Deszcz, Eau de Parfum",
+          "width": 1200,
+          "height": 1800,
+          "cutout": true
         },
         {
-          "src": "/assets/gallery/kadzidlo-i-deszcz-2.svg",
-          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Kadzidło i Deszcz"
+          "src": "/assets/photos/kadzidlo-i-deszcz/detail",
+          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Kadzidło i Deszcz",
+          "width": 1200,
+          "height": 1500
         },
         {
-          "src": "/assets/gallery/kadzidlo-i-deszcz-3.svg",
-          "alt": "Flakon Kadzidło i Deszcz na kamiennym bloku"
+          "src": "/assets/photos/kadzidlo-i-deszcz/stone",
+          "alt": "Flakon Kadzidło i Deszcz na kamiennym bloku",
+          "width": 1200,
+          "height": 1500
         }
       ]
     },
@@ -453,10 +518,16 @@
     "slug": "gorzka-pomarancza",
     "name": "Gorzka Pomarańcza",
     "tagline": "Owoc, kwiat i liść jednego drzewa.",
+    "mood": "Jak śniadanie na tarasie w pełnym słońcu.",
     "family": "Cytrusowy · kwiatowy",
     "concentration": "Eau de Parfum",
     "year": 2025,
     "perfumer": "Ada Lis",
+    "rating": {
+      "value": 4.7,
+      "count": 96,
+      "demo": true
+    },
     "description": [
       "Trzy zapachy gorzkiej pomarańczy w jednym flakonie: owoc, neroli z jej kwiatów i petitgrain z liści i gałązek.",
       "Bazylia i mandarynka dodają otwarciu świeżości, a cedr i piżmo zatrzymują zapach na skórze. Kompozycja jest jasna i musująca, z wyraźnie gorzkim akcentem."
@@ -514,18 +585,25 @@
     "media": {
       "bottle": "/assets/bottles/gorzka-pomarancza.svg",
       "label": "/assets/labels/gorzka-pomarancza.svg",
-      "gallery": [
+      "photos": [
         {
-          "src": "/assets/gallery/gorzka-pomarancza-1.svg",
-          "alt": "Flakon Gorzka Pomarańcza na jasnym tle"
+          "src": "/assets/photos/gorzka-pomarancza/packshot",
+          "alt": "Flakon Gorzka Pomarańcza, Eau de Parfum",
+          "width": 1200,
+          "height": 1800,
+          "cutout": true
         },
         {
-          "src": "/assets/gallery/gorzka-pomarancza-2.svg",
-          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Gorzka Pomarańcza"
+          "src": "/assets/photos/gorzka-pomarancza/detail",
+          "alt": "Zbliżenie na zakrętkę i etykietę flakonu Gorzka Pomarańcza",
+          "width": 1200,
+          "height": 1500
         },
         {
-          "src": "/assets/gallery/gorzka-pomarancza-3.svg",
-          "alt": "Flakon Gorzka Pomarańcza na kamiennym bloku"
+          "src": "/assets/photos/gorzka-pomarancza/stone",
+          "alt": "Flakon Gorzka Pomarańcza na kamiennym bloku",
+          "width": 1200,
+          "height": 1500
         }
       ]
     },

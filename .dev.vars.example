@@ -1,0 +1,2 @@
+# Lokalne sekrety dla `wrangler dev` (skopiuj do .dev.vars). Na produkcji: `npx wrangler secret put ADMIN_PASSWORD`.
+ADMIN_PASSWORD=zmien-mnie-lokalnie

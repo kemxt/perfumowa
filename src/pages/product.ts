@@ -4,9 +4,10 @@ import { bottleMarkup, mountBottle } from '../components/bottle';
 import { galleryMarkup, mountGallery } from '../components/gallery';
 import { mountProductCards, productCardMarkup } from '../components/product-card';
 import { createRotator, rotatorControlsMarkup, type RotatorValue } from '../components/rotator';
-import { formatPrice, getProduct, otherProducts, type Product } from '../data/products';
+import { formatPrice, fromPrice, getProduct, otherProducts, type Product } from '../data/products';
+import { SHOP } from '../data/shop';
 import { attachLabelDebug, isDebugMode, type BottleLabel } from '../lib/bottle-label';
-import { addToCart } from '../lib/cart';
+import { addToCart, type CartLine } from '../lib/cart';
 import { esc, pad2, qs } from '../lib/dom';
 import { MOTION_OK_QUERY, prefersReducedMotion } from '../lib/motion';
 import { scrollToY } from '../lib/smooth-scroll';
@@ -61,12 +62,12 @@ const capitalize = (s: string) => s.charAt(0).toLocaleUpperCase('pl') + s.slice(
 
 const ICON_CHEVRON = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="m3 6 5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`;
 
+/** Puste wartości (np. brak roku przy produkcie dodanym w panelu) pomijamy. */
 const table = (rows: [string, string][]) =>
-  `<dl class="table">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+  `<dl class="table">${rows.filter(([, v]) => v).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
 
 function template(p: Product): string {
-  const fromPrice = Math.min(...p.sizes.map((s) => s.price));
-  const selected = p.sizes.find((s) => s.ml === 50) ?? p.sizes[0];
+  const selected = p.sizes.find((s) => s.ml === SHOP.popularMl) ?? p.sizes[0];
   const join = (items: string[]) => items.map((t, i) => (i ? t.charAt(0).toLocaleLowerCase('pl') + t.slice(1) : t)).join(', ');
 
   const story = [
@@ -89,7 +90,7 @@ function template(p: Product): string {
     },
     {
       title: 'Wysyłka i zwroty',
-      body: `<p>Zamówienia wysyłamy w ciągu 1–2 dni roboczych kurierem lub do paczkomatu. Dostawa jest bezpłatna od ${formatPrice(300)}. Nieotwarty flakon możesz zwrócić w ciągu 30 dni.</p>`,
+      body: `<p>Zamówienia wysyłamy w ciągu 1–2 dni roboczych kurierem lub do paczkomatu. Dostawa jest bezpłatna od ${formatPrice(SHOP.freeShippingFrom)}. Nieotwarty flakon możesz zwrócić w ciągu ${SHOP.returnDays} dni.</p>`,
     },
     {
       title: 'Stosowanie i przechowywanie',
@@ -107,7 +108,7 @@ function template(p: Product): string {
           <h1 id="product-title" class="t-display">${esc(p.name)}</h1>
           <p class="stage__tagline">${esc(p.tagline)}</p>
           <div class="stage__buy">
-            <p class="stage__price">od ${formatPrice(fromPrice)}</p>
+            <p class="stage__price">od ${formatPrice(fromPrice(p))}</p>
             <a class="btn btn--primary" href="#kup">Wybierz pojemność</a>
           </div>
         </div>
@@ -145,7 +146,7 @@ function template(p: Product): string {
       <div class="grid about">
         <div class="about__text">
           <h2 id="about-title" class="label">Opis</h2>
-          <p class="t-lead">${esc(p.description[0])}</p>
+          <p class="t-lead">${esc(p.description[0] ?? '')}</p>
           ${p.description
             .slice(1)
             .map((para) => `<p class="about__para">${esc(para)}</p>`)
@@ -167,15 +168,17 @@ function template(p: Product): string {
             ['Pora roku', capitalize(p.specs.season)],
             ['Okazja', capitalize(p.specs.occasion)],
             ['Perfumiarz', p.perfumer],
-            ['Premiera', String(p.year)],
+            ['Premiera', p.year ? String(p.year) : ''],
           ])}
         </div>
       </div>
     </section>
 
-    <section class="section section--flush surface-light p-gallery">
-      ${galleryMarkup(p, 'gallery-title')}
-    </section>
+    ${
+      p.media.photos.length
+        ? `<section class="section section--flush surface-light p-gallery">${galleryMarkup(p, 'gallery-title')}</section>`
+        : ''
+    }
 
     <section class="section surface-dark" id="kup" aria-labelledby="buy-title">
       <div class="grid buy">
@@ -213,13 +216,13 @@ function template(p: Product): string {
             </div>
 
             <button class="btn btn--primary btn--block" type="submit">Dodaj do koszyka</button>
-            <button class="btn btn--quiet btn--block" type="button" data-sample>Zamów próbkę 2 ml · ${formatPrice(19)}</button>
+            <button class="btn btn--quiet btn--block" type="button" data-sample>Zamów próbkę ${SHOP.sample.ml} ml · ${formatPrice(SHOP.sample.price)}</button>
             <p class="buy__status" role="status" data-status></p>
 
             <ul class="buy__info">
               <li>Wysyłka w 1–2 dni robocze</li>
-              <li>Darmowa dostawa od ${formatPrice(300)}</li>
-              <li>Zwrot do 30 dni</li>
+              <li>Darmowa dostawa od ${formatPrice(SHOP.freeShippingFrom)}</li>
+              <li>Zwrot do ${SHOP.returnDays} dni</li>
             </ul>
           </form>
         </div>
@@ -304,7 +307,8 @@ export function productPage(slug: string): Page {
       cleanups.push(mountStage(main, hero));
       cleanups.push(mountBuy(main, p, buy));
       cleanups.push(mountAccordion(qs(main, '[data-accordion]')));
-      cleanups.push(mountGallery(qs(main, '[data-gallery]')));
+      const gallery = main.querySelector<HTMLElement>('[data-gallery]');
+      if (gallery) cleanups.push(mountGallery(gallery));
       cleanups.push(mountProductCards(main));
 
       if (isDebugMode()) void attachLabelDebug(hero, p.name).then((dispose) => cleanups.push(dispose));
@@ -419,6 +423,8 @@ function mountStage(main: HTMLElement, label: BottleLabel): () => void {
   };
 }
 
+type CartItem = Pick<CartLine, 'key' | 'variant' | 'price'>;
+
 /** Wybór pojemności, ilość, suma, drugi obracany flakon i pływający pasek zakupu. */
 function mountBuy(main: HTMLElement, p: Product, label: BottleLabel): () => void {
   const form = qs<HTMLFormElement>(main, '[data-buy]');
@@ -445,9 +451,13 @@ function mountBuy(main: HTMLElement, p: Product, label: BottleLabel): () => void
     else gsap.set(pose, { scale });
   };
 
-  const add = (quantity: number, what: string) => {
-    const count = addToCart(quantity);
-    status.textContent = `Dodano do koszyka: ${what}. W koszyku: ${count} szt.`;
+  const add = (line: CartItem, quantity: number) => {
+    addToCart({ ...line, slug: p.slug, name: p.name, image: p.media.bottle }, quantity);
+    status.textContent = `Dodano do koszyka: ${p.name}, ${line.variant}${quantity > 1 ? ` × ${quantity}` : ''}.`;
+  };
+  const sizeLine = (): CartItem => {
+    const size = selected();
+    return { key: `${p.slug}-${size.ml}`, variant: `${size.ml} ml`, price: size.price };
   };
 
   const onChange = () => {
@@ -461,15 +471,15 @@ function mountBuy(main: HTMLElement, p: Product, label: BottleLabel): () => void
       state.qty = Math.max(1, Math.min(9, state.qty + Number(qty.dataset.qty)));
       update(false);
     } else if (target.closest('[data-sample]')) {
-      add(1, `${p.name}, próbka 2 ml`);
+      add({ key: `${p.slug}-probka`, variant: `próbka ${SHOP.sample.ml} ml`, price: SHOP.sample.price }, 1);
     }
   };
   const onSubmit = (event: SubmitEvent) => {
     event.preventDefault();
-    add(state.qty, `${p.name}, ${selected().ml} ml × ${state.qty}`);
+    add(sizeLine(), state.qty);
   };
   const barAdd = qs(bar, '[data-bar-add]');
-  const onBarAdd = () => add(1, `${p.name}, ${selected().ml} ml`);
+  const onBarAdd = () => add(sizeLine(), 1);
 
   form.addEventListener('change', onChange);
   form.addEventListener('click', onClick);

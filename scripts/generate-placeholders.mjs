@@ -1,22 +1,21 @@
 #!/usr/bin/env node
 /**
- * Generuje brakujące placeholdery dla produktów z src/data/products.json:
+ * Generuje brakujące assety dla produktów z src/data/products.json:
  *
- *   public/assets/bottles/{slug}.svg     flakon BEZ etykiety (przezroczyste tło, 800×1200)
- *   public/assets/labels/{slug}.svg      rozwinięta etykieta: cały obwód minus GAP
- *   public/assets/gallery/{slug}-{n}.svg zdjęcia do galerii
+ *   public/assets/bottles/{slug}.svg   flakon BEZ etykiety (do efektu etykiety 3D)
+ *   public/assets/labels/{slug}.svg    rozwinięta etykieta: cały obwód minus GAP
+ *   assets-src/photos/{slug}/*.svg     placeholdery zdjęć (packshot, detail, stone)
+ *   public/assets/photos/{slug}/{nazwa}-{600,1200}.{avif,webp}
+ *                                      zdjęcia gotowe dla strony, ze źródeł w assets-src
  *
- * Geometria flakonu i proporcje etykiety wynikają z labelConfig produktu
- * (CYL_TOP / CYL_BOT / CYL_WIDTH / GAP), więc placeholder od razu pasuje do efektu 3D.
+ * Prawdziwe zdjęcia: wrzuć assets-src/photos/{slug}/{nazwa}.png|jpg|webp – skrypt
+ * pominie placeholder i przekonwertuje Twoje zdjęcie (także gdy źródło jest nowsze).
  *
- * Istniejących plików nie nadpisuje – użyj --force, żeby wygenerować wszystko od nowa.
- * Tekst zamieniany jest na ścieżki (opentype.js): SVG wczytany jako <img> lub tekstura
- * nie ma dostępu do web fontów strony.
- *
- * opentype.js i fonty (devDependencies) ładujemy tylko, gdy czegoś brakuje – build
- * w CI z kompletem plików w repo nie potrzebuje ich wcale.
+ * Istniejących plików nie nadpisuje (chyba że --force). Tekst w SVG zamieniany jest na
+ * ścieżki (opentype.js), bo SVG wczytany jako <img> nie ma dostępu do web fontów.
+ * opentype.js, fonty i sharp (devDependencies) ładujemy tylko, gdy coś trzeba wygenerować.
  */
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -551,6 +550,20 @@ function packshotStone(product, defaults) {
 // Zapis
 // ---------------------------------------------------------------------------
 
+/** Wycięty flakon z etykietą na przezroczystym tle (800×1200) – zdjęcie główne. */
+function photoCutout(product, defaults) {
+  const { defs, body } = dressedBottle(product, defaults, 'c');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${IMG_W}" height="${IMG_H}" viewBox="0 0 ${IMG_W} ${IMG_H}">
+  <defs>${defs}</defs>${body}
+</svg>
+`;
+}
+
+/** Placeholdery zdjęć wg nazwy pliku w media.photos[].src. */
+const PHOTO_BUILDERS = { packshot: photoCutout, detail: packshotDetail, stone: packshotStone };
+const PHOTO_WIDTHS = [600, 1200];
+const SOURCE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.svg'];
+
 async function exists(file) {
   try {
     await access(file);
@@ -560,40 +573,93 @@ async function exists(file) {
   }
 }
 
+async function mtime(file) {
+  try {
+    return (await stat(file)).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
 const products = JSON.parse(await readFile(path.join(ROOT, 'src/data/products.json'), 'utf8'));
 const defaults = JSON.parse(await readFile(path.join(ROOT, 'src/lib/bottle-label/defaults.json'), 'utf8'));
 
-/** Lista plików do wygenerowania: [ścieżka publiczna, funkcja budująca SVG]. */
-const jobs = [];
+// --- 1. SVG: flakony, etykiety i źródła zdjęć -------------------------------
+
+/** [ścieżka pliku, opis do logu, funkcja budująca SVG] */
+const svgJobs = [];
+/** Zdjęcia do konwersji: { base (ścieżka publiczna bez rozszerzenia), sourceBase (bez rozszerzenia) } */
+const photos = [];
+
 for (const product of products) {
-  jobs.push([product.media.bottle, () => bottleSVG(product, defaults)]);
-  jobs.push([product.media.label, () => labelSVG(product, defaults)]);
-  const builders = [packshotFront, packshotDetail, packshotStone];
-  for (const [i, item] of product.media.gallery.entries()) {
-    const build = builders[i % builders.length];
-    jobs.push([item.src, () => build(product, defaults)]);
+  for (const publicPath of [product.media.bottle, product.media.label]) {
+    if (!publicPath?.startsWith('/assets/')) continue;
+    const build = publicPath === product.media.bottle ? bottleSVG : labelSVG;
+    svgJobs.push([path.join(ROOT, 'public', publicPath), publicPath, () => build(product, defaults)]);
+  }
+  for (const photo of product.media.photos ?? []) {
+    const rel = photo.src.replace(/^\/assets\//, '');
+    const sourceBase = path.join(ROOT, 'assets-src', rel);
+    photos.push({ base: path.join(ROOT, 'public', photo.src), publicBase: photo.src, sourceBase });
+    const name = path.basename(rel);
+    const own = await Promise.all(SOURCE_EXTS.filter((e) => e !== '.svg').map((e) => exists(sourceBase + e)));
+    if (own.some(Boolean)) continue; // jest prawdziwe zdjęcie – placeholder niepotrzebny
+    const builder = PHOTO_BUILDERS[name];
+    if (builder) svgJobs.push([`${sourceBase}.svg`, `assets-src/${rel}.svg`, () => builder(product, defaults)]);
   }
 }
 
-const pending = [];
+const pendingSvg = [];
 let skipped = 0;
-for (const [publicPath, build] of jobs) {
-  if (!publicPath?.startsWith('/assets/')) continue;
-  const file = path.join(ROOT, 'public', publicPath);
-  if (!FORCE && (await exists(file))) {
-    skipped++;
-  } else if (!file.endsWith('.svg')) {
-    console.warn(`  ! brak pliku ${publicPath} – placeholdery generuję tylko jako .svg`);
-  } else {
-    pending.push([publicPath, file, build]);
-  }
+for (const job of svgJobs) {
+  if (!FORCE && (await exists(job[0]))) skipped++;
+  else pendingSvg.push(job);
 }
-
-if (pending.length) await loadFonts();
-for (const [publicPath, file, build] of pending) {
+if (pendingSvg.length) await loadFonts();
+for (const [file, label, build] of pendingSvg) {
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, build());
-  console.log(`  + ${publicPath}`);
+  console.log(`  + ${label}`);
 }
 
-console.log(`placeholdery: ${pending.length} wygenerowanych, ${skipped} istniejących pominięto${FORCE ? '' : ' (--force nadpisuje)'}`);
+// --- 2. Zdjęcia: źródło → AVIF + WebP w kilku szerokościach -----------------
+
+const pendingPhotos = [];
+for (const photo of photos) {
+  let source = null;
+  for (const ext of SOURCE_EXTS) {
+    if (await exists(photo.sourceBase + ext)) {
+      source = photo.sourceBase + ext;
+      break;
+    }
+  }
+  if (!source) {
+    console.warn(`  ! brak źródła zdjęcia ${photo.publicBase} (oczekiwane assets-src${photo.publicBase.replace('/assets', '')}.png/.jpg/.webp)`);
+    continue;
+  }
+  const outputs = PHOTO_WIDTHS.flatMap((w) => ['avif', 'webp'].map((f) => `${photo.base}-${w}.${f}`));
+  const sourceTime = await mtime(source);
+  const stale = FORCE || (await Promise.all(outputs.map(mtime))).some((t) => t < sourceTime);
+  if (stale) pendingPhotos.push({ ...photo, source, outputs });
+  else skipped += outputs.length;
+}
+
+if (pendingPhotos.length) {
+  const { default: sharp } = await import('sharp');
+  for (const photo of pendingPhotos) {
+    const input = await readFile(photo.source);
+    await mkdir(path.dirname(photo.base), { recursive: true });
+    for (const width of PHOTO_WIDTHS) {
+      // Wektor rasteryzujemy od razu w docelowej gęstości (bez rozmywania przy powiększeniu).
+      const meta = await sharp(input).metadata();
+      const density = photo.source.endsWith('.svg') ? Math.max(72, (72 * width) / (meta.width ?? width)) : undefined;
+      const image = () => sharp(input, density ? { density } : {}).resize({ width, withoutEnlargement: !density });
+      await image().avif({ quality: 58, effort: 5 }).toFile(`${photo.base}-${width}.avif`);
+      await image().webp({ quality: 80 }).toFile(`${photo.base}-${width}.webp`);
+    }
+    console.log(`  + ${photo.publicBase}-{${PHOTO_WIDTHS.join(',')}}.{avif,webp}`);
+  }
+}
+
+const generated = pendingSvg.length + pendingPhotos.length;
+console.log(`placeholdery: ${generated} wygenerowanych, ${skipped} aktualnych pominięto${FORCE ? '' : ' (--force nadpisuje)'}`);
