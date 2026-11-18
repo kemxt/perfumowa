@@ -5,6 +5,9 @@
  * a produkty edytuje się w panelu /admin/.
  *
  *   node scripts/seed-sql.mjs
+ *
+ * Uwaga: 0002 jest już zastosowana na produkcji – nie generuj jej ponownie. Zmiany danych
+ * startowych (np. kategorie damskie/męskie/unisex) robi kolejna migracja, 0003_content.sql.
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';

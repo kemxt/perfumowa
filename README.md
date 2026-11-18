@@ -57,7 +57,16 @@ inaczej sklep przez chwilę działałby na pustej bazie.
 
 ## Na co dzień
 
-- Produkty edytujesz w panelu: zapisane zmiany widać w sklepie po kilku sekundach.
+- Produkty, strony i ustawienia edytujesz w panelu: zapisane zmiany widać w sklepie od razu.
+- **Katalog** (`/perfumy`): zakładki z kategorii (Damskie, Męskie, Unisex) i Nowości, filtr pory
+  roku, wyszukiwanie po nazwie i nutach. Pora roku, „Nowość” i dostępność pojemności ustawiasz
+  w edytorze produktu.
+- **Ustawienia**: kontakt, godziny obsługi, dane firmy, sposoby i koszty dostawy, darmowa dostawa,
+  czas realizacji, śledzenie przesyłki, metody płatności, dni na zwrot.
+- **Strony**: Kontakt, Dostawa i płatności (część z ustawień + własny tekst) oraz dokumenty:
+  regulamin, polityka prywatności, cookies, zwroty, reklamacje, formularz odstąpienia. Treść to
+  prosty Markdown; pola `{{firma}}`, `{{adres}}`, `{{nip}}`, `{{email}}`… wypełniają się z Ustawień.
+  Opublikowane strony trafiają do stopki.
   Szkic nie trafia do sklepu. Publikacja wymaga ceny i zdjęcia flakonu.
 - Zdjęcia: panel sam robi warianty 600 i 1200 px w WebP przed wysłaniem.
 - Hasło: `npx wrangler secret put ADMIN_PASSWORD` (zmiana wylogowuje wszystkie sesje).

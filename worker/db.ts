@@ -1,14 +1,23 @@
-import type {
-  AdminCategory,
-  AdminCategoryInput,
-  AdminProduct,
-  AdminProductInput,
-  AdminProductSummary,
-  Catalog,
-  CatalogProduct,
-  PhotoFormat,
-  ProductPhoto,
-  ProductSize,
+import {
+  AVAILABILITY,
+  DEFAULT_SETTINGS,
+  SEASONS,
+  type AdminCategory,
+  type AdminCategoryInput,
+  type AdminPage,
+  type AdminPageInput,
+  type AdminProduct,
+  type AdminProductInput,
+  type AdminProductSummary,
+  type Availability,
+  type Catalog,
+  type CatalogProduct,
+  type Page,
+  type PhotoFormat,
+  type ProductPhoto,
+  type ProductSize,
+  type Season,
+  type ShopSettings,
 } from '../shared/catalog';
 import { HttpError } from './http';
 
@@ -30,6 +39,8 @@ interface ProductRow {
   concentration: string;
   year: number | null;
   perfumer: string;
+  seasons: string;
+  is_new: number;
   description: string;
   story: string;
   notes: string;
@@ -46,6 +57,7 @@ interface SizeRow {
   product_id: number;
   ml: number;
   price: number;
+  availability: string;
 }
 
 interface PhotoRow {
@@ -79,7 +91,20 @@ function parse<T extends object>(text: string | null, fallback: T): T {
   }
 }
 
-const toSize = (row: SizeRow): ProductSize => ({ ml: row.ml, price: row.price / 100 });
+const toSize = (row: SizeRow): ProductSize => ({
+  ml: row.ml,
+  price: row.price / 100,
+  availability: AVAILABILITY.includes(row.availability as Availability) ? (row.availability as Availability) : 'available',
+});
+
+function parseSeasons(text: string): Season[] {
+  try {
+    const value: unknown = JSON.parse(text);
+    return Array.isArray(value) ? SEASONS.filter((s) => value.includes(s)) : [];
+  } catch {
+    return [];
+  }
+}
 
 function toPhoto(row: PhotoRow): ProductPhoto {
   const photo: ProductPhoto = { src: row.src, formats: row.formats.split(',') as PhotoFormat[], alt: row.alt, width: row.width, height: row.height };
@@ -97,6 +122,9 @@ function groupBy<T extends { product_id: number }, U>(rows: T[], map: (row: T) =
   return groups;
 }
 
+/** Stare rekordy mają w specs także „season” (dziś osobne pole seasons) – pomijamy je. */
+const pickSpecs = ({ longevity, sillage, occasion }: CatalogProduct['specs']): CatalogProduct['specs'] => ({ longevity, sillage, occasion });
+
 /** Pola wspólne dla katalogu i edytora. */
 function productFields(row: ProductRow, sizes: ProductSize[], photos: ProductPhoto[]): Omit<CatalogProduct, 'category'> {
   const labelConfig = row.label_config ? parse<Record<string, number>>(row.label_config, {}) : undefined;
@@ -109,12 +137,14 @@ function productFields(row: ProductRow, sizes: ProductSize[], photos: ProductPho
     concentration: row.concentration,
     year: row.year,
     perfumer: row.perfumer,
+    seasons: parseSeasons(row.seasons),
+    isNew: !!row.is_new,
     rating: row.rating ? parse(row.rating, { value: 0, count: 0 }) : null,
     description: row.description.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
     story: parse(row.story, { top: '', heart: '', base: '' }),
     notes: parse(row.notes, { top: [], heart: [], base: [] }),
     sizes,
-    specs: parse(row.specs, { longevity: '', sillage: '', season: '', occasion: '' }),
+    specs: pickSpecs(parse(row.specs, { longevity: '', sillage: '', occasion: '' })),
     palette: parse(row.palette, DEFAULT_PALETTE),
     media: { bottle: row.bottle_image, label: row.label_image, photos },
     ...(labelConfig && Object.keys(labelConfig).length ? { labelConfig } : {}),
@@ -138,14 +168,16 @@ function toAdminProduct(row: ProductRow, sizes: ProductSize[], photos: ProductPh
 
 export async function getCatalog(db: D1Database): Promise<Catalog> {
   const published = `SELECT id FROM products WHERE status = 'published'`;
-  const [categories, products, sizes, photos] = await db.batch([
+  const [categories, products, sizes, photos, settings, pages] = await db.batch([
     db.prepare('SELECT id, slug, name, description, position FROM categories ORDER BY position, id'),
     db.prepare(
       `SELECT p.*, c.slug AS category_slug FROM products p LEFT JOIN categories c ON c.id = p.category_id
        WHERE p.status = 'published' ORDER BY p.position, p.id`,
     ),
-    db.prepare(`SELECT product_id, ml, price FROM product_sizes WHERE product_id IN (${published}) ORDER BY product_id, ml`),
+    db.prepare(`SELECT product_id, ml, price, availability FROM product_sizes WHERE product_id IN (${published}) ORDER BY product_id, ml`),
     db.prepare(`SELECT * FROM product_photos WHERE product_id IN (${published}) ORDER BY product_id, position, id`),
+    db.prepare(`SELECT value FROM settings WHERE key = 'shop'`),
+    db.prepare('SELECT slug, title FROM pages WHERE published = 1 ORDER BY position, id'),
   ]);
   const sizesBy = groupBy(sizes.results as SizeRow[], toSize);
   const photosBy = groupBy(photos.results as PhotoRow[], toPhoto);
@@ -155,6 +187,8 @@ export async function getCatalog(db: D1Database): Promise<Catalog> {
       ...productFields(row, sizesBy.get(row.id) ?? [], photosBy.get(row.id) ?? []),
       category: row.category_slug ?? null,
     })),
+    settings: parseSettings((settings.results[0] as { value: string } | undefined)?.value ?? null),
+    pages: pages.results as Catalog['pages'],
   };
 }
 
@@ -164,8 +198,8 @@ export async function getCatalog(db: D1Database): Promise<Catalog> {
 
 export async function listProducts(db: D1Database): Promise<AdminProductSummary[]> {
   const [products, sizes, photos] = await db.batch([
-    db.prepare('SELECT id, slug, name, status, category_id, position, updated_at FROM products ORDER BY position, id'),
-    db.prepare('SELECT product_id, ml, price FROM product_sizes ORDER BY product_id, ml'),
+    db.prepare('SELECT id, slug, name, status, category_id, position, is_new, updated_at FROM products ORDER BY position, id'),
+    db.prepare('SELECT product_id, ml, price, availability FROM product_sizes ORDER BY product_id, ml'),
     db.prepare('SELECT * FROM product_photos ORDER BY product_id, position, id'),
   ]);
   const sizesBy = groupBy(sizes.results as SizeRow[], toSize);
@@ -177,6 +211,7 @@ export async function listProducts(db: D1Database): Promise<AdminProductSummary[
     status: row.status,
     categoryId: row.category_id,
     position: row.position,
+    isNew: !!row.is_new,
     sizes: sizesBy.get(row.id) ?? [],
     thumb: photosBy.get(row.id)?.[0] ?? null,
     updatedAt: row.updated_at,
@@ -186,7 +221,7 @@ export async function listProducts(db: D1Database): Promise<AdminProductSummary[
 export async function getProduct(db: D1Database, id: number): Promise<AdminProduct> {
   const [products, sizes, photos] = await db.batch([
     db.prepare('SELECT * FROM products WHERE id = ?').bind(id),
-    db.prepare('SELECT product_id, ml, price FROM product_sizes WHERE product_id = ? ORDER BY ml').bind(id),
+    db.prepare('SELECT product_id, ml, price, availability FROM product_sizes WHERE product_id = ? ORDER BY ml').bind(id),
     db.prepare('SELECT * FROM product_photos WHERE product_id = ? ORDER BY position, id').bind(id),
   ]);
   const row = products.results[0] as ProductRow | undefined;
@@ -216,6 +251,8 @@ function productColumns(input: AdminProductInput): [string, unknown][] {
     ['concentration', input.concentration],
     ['year', input.year],
     ['perfumer', input.perfumer],
+    ['seasons', JSON.stringify(input.seasons)],
+    ['is_new', input.isNew ? 1 : 0],
     ['description', input.description.join('\n\n')],
     ['story', JSON.stringify(input.story)],
     ['notes', JSON.stringify(input.notes)],
@@ -235,7 +272,11 @@ function childStatements(db: D1Database, input: AdminProductInput, productId: st
     db.prepare(`DELETE FROM product_photos WHERE product_id = ${productId}`).bind(bindId),
     ...[...input.sizes]
       .sort((a, b) => a.ml - b.ml)
-      .map((s, i) => db.prepare(`INSERT INTO product_sizes (product_id, ml, price, position) VALUES (${productId}, ?, ?, ?)`).bind(bindId, s.ml, Math.round(s.price * 100), i)),
+      .map((s, i) =>
+        db
+          .prepare(`INSERT INTO product_sizes (product_id, ml, price, availability, position) VALUES (${productId}, ?, ?, ?, ?)`)
+          .bind(bindId, s.ml, Math.round(s.price * 100), s.availability, i),
+      ),
     ...input.media.photos.map((p, i) =>
       db
         .prepare(`INSERT INTO product_photos (product_id, src, formats, alt, width, height, cutout, position) VALUES (${productId}, ?, ?, ?, ?, ?, ?, ?)`)
@@ -333,4 +374,113 @@ export async function deleteCategory(db: D1Database, id: number): Promise<void> 
     db.prepare('DELETE FROM categories WHERE id = ?').bind(id),
   ]);
   if (!removed.meta.changes) throw new HttpError(404, 'Nie ma takiej kategorii.');
+}
+
+// ---------------------------------------------------------------------------
+// Ustawienia sklepu
+// ---------------------------------------------------------------------------
+
+/** Ustawienia z bazy uzupełnione domyślnymi (np. po dodaniu nowego pola). */
+function parseSettings(text: string | null): ShopSettings {
+  let stored: Partial<ShopSettings> = {};
+  try {
+    stored = text ? (JSON.parse(text) as Partial<ShopSettings>) : {};
+  } catch {
+    // uszkodzony JSON – zostają domyślne
+  }
+  return {
+    company: { ...DEFAULT_SETTINGS.company, ...stored.company },
+    contact: { ...DEFAULT_SETTINGS.contact, ...stored.contact },
+    shipping: { ...DEFAULT_SETTINGS.shipping, ...stored.shipping },
+    payments: { ...DEFAULT_SETTINGS.payments, ...stored.payments },
+    returns: { ...DEFAULT_SETTINGS.returns, ...stored.returns },
+  };
+}
+
+export async function getSettings(db: D1Database): Promise<ShopSettings> {
+  return parseSettings(await db.prepare(`SELECT value FROM settings WHERE key = 'shop'`).first<string>('value'));
+}
+
+export async function saveSettings(db: D1Database, settings: ShopSettings): Promise<void> {
+  await db
+    .prepare(`INSERT INTO settings (key, value) VALUES ('shop', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`)
+    .bind(JSON.stringify(settings))
+    .run();
+}
+
+// ---------------------------------------------------------------------------
+// Strony informacyjne
+// ---------------------------------------------------------------------------
+
+interface PageRow {
+  id: number;
+  slug: string;
+  title: string;
+  body: string;
+  published: number;
+  system: number;
+  position: number;
+  updated_at: string;
+}
+
+const toAdminPage = (r: PageRow): AdminPage => ({
+  id: r.id,
+  slug: r.slug,
+  title: r.title,
+  body: r.body,
+  published: !!r.published,
+  system: !!r.system,
+  position: r.position,
+  updatedAt: r.updated_at,
+});
+
+export async function getPublishedPage(db: D1Database, slug: string): Promise<Page> {
+  const row = await db.prepare('SELECT slug, title, body, updated_at FROM pages WHERE slug = ? AND published = 1').bind(slug).first<PageRow>();
+  if (!row) throw new HttpError(404, 'Nie ma takiej strony.');
+  return { slug: row.slug, title: row.title, body: row.body, updatedAt: row.updated_at };
+}
+
+export async function listPages(db: D1Database): Promise<AdminPage[]> {
+  const { results } = await db.prepare('SELECT * FROM pages ORDER BY position, id').all<PageRow>();
+  return results.map(toAdminPage);
+}
+
+export async function getPage(db: D1Database, id: number): Promise<AdminPage> {
+  const row = await db.prepare('SELECT * FROM pages WHERE id = ?').bind(id).first<PageRow>();
+  if (!row) throw new HttpError(404, 'Nie ma takiej strony.');
+  return toAdminPage(row);
+}
+
+async function assertPageUnique(db: D1Database, slug: string, id: number | null): Promise<void> {
+  const taken = await db.prepare('SELECT id FROM pages WHERE slug = ? AND id IS NOT ?').bind(slug, id).first<number>('id');
+  if (taken) throw new HttpError(409, 'Adres jest już zajęty.', { slug: 'Inna strona ma już ten adres.' });
+}
+
+export async function createPage(db: D1Database, input: AdminPageInput): Promise<number> {
+  await assertPageUnique(db, input.slug, null);
+  const id = await db
+    .prepare(
+      `INSERT INTO pages (slug, title, body, published, position)
+       VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM pages)) RETURNING id`,
+    )
+    .bind(input.slug, input.title, input.body, input.published ? 1 : 0)
+    .first<number>('id');
+  return id!;
+}
+
+export async function updatePage(db: D1Database, id: number, input: AdminPageInput): Promise<void> {
+  const current = await getPage(db, id);
+  // Strony wbudowane mają stały adres – linkuje do nich kod sklepu i inne dokumenty.
+  const slug = current.system ? current.slug : input.slug;
+  await assertPageUnique(db, slug, id);
+  await db
+    .prepare(`UPDATE pages SET slug = ?, title = ?, body = ?, published = ?, updated_at = datetime('now') WHERE id = ?`)
+    .bind(slug, input.title, input.body, input.published ? 1 : 0, id)
+    .run();
+}
+
+export async function deletePage(db: D1Database, id: number): Promise<void> {
+  const page = await getPage(db, id);
+  if (page.system) throw new HttpError(409, 'Tej strony nie można usunąć – możesz ją ukryć (szkic).');
+  await db.prepare('DELETE FROM pages WHERE id = ?').bind(id).run();
 }

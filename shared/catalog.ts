@@ -14,9 +14,19 @@ export const PHOTO_MIME: Record<PhotoFormat, string> = {
   png: 'image/png',
 };
 
+export const SEASONS = ['wiosna', 'lato', 'jesien', 'zima'] as const;
+export type Season = (typeof SEASONS)[number];
+export const SEASON_LABEL: Record<Season, string> = { wiosna: 'Wiosna', lato: 'Lato', jesien: 'Jesień', zima: 'Zima' };
+
+/** Dostępność pojemności: dostępna, ostatnie sztuki, chwilowo niedostępna. */
+export const AVAILABILITY = ['available', 'low', 'unavailable'] as const;
+export type Availability = (typeof AVAILABILITY)[number];
+export const AVAILABILITY_LABEL: Record<Availability, string> = { available: 'Dostępny', low: 'Ostatnie sztuki', unavailable: 'Chwilowo niedostępny' };
+
 export interface ProductSize {
   ml: number;
   price: number;
+  availability: Availability;
 }
 
 /** Zdjęcie: `src` to ścieżka bez sufiksu; pliki to `${src}-{600,1200}.{format}`. */
@@ -49,6 +59,10 @@ export interface CatalogProduct {
   concentration: string;
   year: number | null;
   perfumer: string;
+  /** Pory roku, do których pasuje zapach (filtr w katalogu). */
+  seasons: Season[];
+  /** Oznaczony w panelu jako nowość (zakładka „Nowości”). */
+  isNew: boolean;
   /** demo: true – dane przykładowe, przed startem podmień na oceny z systemu opinii. */
   rating: { value: number; count: number; demo?: boolean } | null;
   description: string[];
@@ -56,7 +70,7 @@ export interface CatalogProduct {
   story: { top: string; heart: string; base: string };
   notes: { top: string[]; heart: string[]; base: string[] };
   sizes: ProductSize[];
-  specs: { longevity: string; sillage: string; season: string; occasion: string };
+  specs: { longevity: string; sillage: string; occasion: string };
   /** Kolory placeholderów (flakon, etykieta, galeria). Interfejs strony jest monochromatyczny. */
   palette: { bg: string; fg: string; liquid: string; paper: string; ink: string; cap: string };
   media: { bottle: string; label: string; photos: ProductPhoto[] };
@@ -64,10 +78,55 @@ export interface CatalogProduct {
   labelConfig?: Record<string, number>;
 }
 
-/** GET /api/catalog – tylko opublikowane produkty, w kolejności z panelu. */
+// ---------------------------------------------------------------------------
+// Ustawienia sklepu i strony informacyjne
+// ---------------------------------------------------------------------------
+
+export interface ShippingMethod {
+  name: string;
+  /** Koszt w złotych (0 = bezpłatnie). */
+  price: number;
+  /** Przewidywany czas dostawy, np. „1–2 dni robocze”. */
+  time: string;
+}
+
+export interface ShopSettings {
+  company: { name: string; address: string; nip: string; regon: string };
+  /** hours: kolejne linie, np. „Poniedziałek–piątek: 9:00–17:00”. */
+  contact: { email: string; phone: string; hours: string };
+  shipping: { methods: ShippingMethod[]; freeFrom: number | null; processingTime: string; tracking: string };
+  payments: { methods: string[]; note: string };
+  /** Ustawowo co najmniej 14 dni. */
+  returns: { days: number };
+}
+
+export const PAYMENT_METHODS = ['BLIK', 'Karta płatnicza', 'Szybki przelew online', 'Przelew tradycyjny', 'Google Pay', 'Apple Pay', 'Płatność przy odbiorze'];
+
+export const DEFAULT_SETTINGS: ShopSettings = {
+  company: { name: '', address: '', nip: '', regon: '' },
+  contact: { email: '', phone: '', hours: '' },
+  shipping: { methods: [], freeFrom: null, processingTime: '', tracking: '' },
+  payments: { methods: [], note: '' },
+  returns: { days: 14 },
+};
+
+export interface PageLink {
+  slug: string;
+  title: string;
+}
+
+/** Strona informacyjna (regulamin, polityki…). Treść w prostym Markdownie z polami {{…}}. */
+export interface Page extends PageLink {
+  body: string;
+  updatedAt: string;
+}
+
+/** GET /api/catalog – tylko opublikowane produkty i strony, w kolejności z panelu. */
 export interface Catalog {
   categories: Category[];
   products: CatalogProduct[];
+  settings: ShopSettings;
+  pages: PageLink[];
 }
 
 // ---------------------------------------------------------------------------
@@ -101,12 +160,26 @@ export interface AdminProductSummary {
   status: ProductStatus;
   categoryId: number | null;
   position: number;
+  isNew: boolean;
   sizes: ProductSize[];
   thumb: ProductPhoto | null;
   updatedAt: string;
 }
 
 export type AdminCategoryInput = Pick<Category, 'slug' | 'name' | 'description'>;
+
+export interface AdminPage extends Page {
+  id: number;
+  published: boolean;
+  /** Strona wbudowana (kontakt, dostawa, dokumenty prawne) – nie da się jej usunąć ani zmienić adresu. */
+  system: boolean;
+  position: number;
+}
+
+export type AdminPageInput = Pick<AdminPage, 'slug' | 'title' | 'body' | 'published'>;
+
+/** Adresy zajęte przez sklep – strona nie może ich użyć. */
+export const RESERVED_SLUGS = ['perfumy', 'admin', 'api', 'media', 'assets', '_app', 'koszyk', 'kasa', 'favicon.svg'];
 
 /** Wynik wgrania zdjęcia (POST /api/admin/media/photo). */
 export type UploadedPhoto = Pick<ProductPhoto, 'src' | 'formats' | 'width' | 'height'>;

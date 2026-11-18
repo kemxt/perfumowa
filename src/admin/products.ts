@@ -1,4 +1,4 @@
-import { slugify, type AdminCategory, type AdminProduct, type AdminProductInput, type AdminProductSummary, type ProductSize } from '../../shared/catalog';
+import { AVAILABILITY, AVAILABILITY_LABEL, SEASONS, SEASON_LABEL, slugify, type AdminCategory, type Availability, type Season, type AdminProduct, type AdminProductInput, type AdminProductSummary, type ProductSize } from '../../shared/catalog';
 import { formatPrice } from '../data/products';
 import { RequestError, api } from './api';
 import { uploadFile, uploadPhoto } from './images';
@@ -50,9 +50,17 @@ export function productListView(): View {
             <span class="muted small">/perfumy/${esc(p.slug)}</span>
           </td>
           <td>${esc(categoryName(p.categoryId))}</td>
-          <td class="nowrap">${p.sizes.length ? `${p.sizes.map((s) => s.ml).join(' · ')} ml` : '<span class="muted">brak</span>'}</td>
+          <td class="nowrap">${
+            p.sizes.length
+              ? `${p.sizes.map((s) => (s.availability === 'unavailable' ? `<s title="${AVAILABILITY_LABEL.unavailable}">${s.ml}</s>` : s.ml)).join(' · ')} ml`
+              : '<span class="muted">brak</span>'
+          }</td>
           <td class="nowrap">${prices.length ? (prices.length > 1 ? `${formatPrice(Math.min(...prices))} – ${formatPrice(Math.max(...prices))}` : formatPrice(prices[0])) : '—'}</td>
-          <td><span class="badge badge--${p.status}">${STATUS_LABEL[p.status]}</span></td>
+          <td>
+            <span class="badge badge--${p.status}">${STATUS_LABEL[p.status]}</span>
+            ${p.isNew ? '<span class="badge badge--new">Nowość</span>' : ''}
+            ${p.sizes.length && p.sizes.every((s) => s.availability === 'unavailable') ? '<span class="badge badge--out">Niedostępny</span>' : ''}
+          </td>
         </tr>`;
       })
       .join('');
@@ -148,7 +156,6 @@ const LAYERS = [
 const SPECS = [
   ['longevity', 'Trwałość', 'np. 6–8 h'],
   ['sillage', 'Projekcja', 'np. umiarkowana'],
-  ['season', 'Pora roku', 'np. wiosna · lato'],
   ['occasion', 'Okazja', 'np. dzień'],
 ] as const;
 type FileKey = 'bottle' | 'label';
@@ -177,16 +184,18 @@ function emptyProduct(): AdminProductInput {
     concentration: 'Eau de Parfum',
     year: new Date().getFullYear(),
     perfumer: '',
+    seasons: [],
+    isNew: false,
     rating: null,
     description: [],
     story: { top: '', heart: '', base: '' },
     notes: { top: [], heart: [], base: [] },
     sizes: [
-      { ml: 30, price: NaN },
-      { ml: 50, price: NaN },
-      { ml: 100, price: NaN },
+      { ml: 30, price: NaN, availability: 'available' },
+      { ml: 50, price: NaN, availability: 'available' },
+      { ml: 100, price: NaN, availability: 'available' },
     ],
-    specs: { longevity: '', sillage: '', season: '', occasion: '' },
+    specs: { longevity: '', sillage: '', occasion: '' },
     palette: { bg: '#D9D4CB', fg: '#1A1A19', liquid: '#EFE9DC', paper: '#F6F2E6', ink: '#1A1A19', cap: '#2B2620' },
     media: { bottle: '', label: '', photos: [] },
   };
@@ -238,6 +247,12 @@ export function productEditorView(id: number | null): View {
           <label for="f-size-${i}-price">Cena</label>
           <div class="input-unit"><input id="f-size-${i}-price" type="text" inputmode="decimal" data-size="${i}" data-key="price" value="${Number.isFinite(s.price) ? String(s.price).replace('.', ',') : ''}" /><span>zł</span></div>
           <p class="field__error" data-error></p>
+        </div>
+        <div class="field" data-field="sizes.${i}.availability">
+          <label for="f-size-${i}-availability">Dostępność</label>
+          <select id="f-size-${i}-availability" data-size="${i}" data-key="availability">
+            ${AVAILABILITY.map((a) => `<option value="${a}"${s.availability === a ? ' selected' : ''}>${AVAILABILITY_LABEL[a]}</option>`).join('')}
+          </select>
         </div>
         <p class="size-row__unit muted small" data-unit="${i}">${unitPrice(s)}</p>
         <button type="button" class="icon-btn" data-remove-size="${i}" aria-label="Usuń pojemność ${Number.isFinite(s.ml) ? `${s.ml} ml` : ''}">✕</button>
@@ -398,6 +413,7 @@ export function productEditorView(id: number | null): View {
                 .join('')}
             </div>
             <p class="field__hint">Szkic nie jest widoczny w sklepie.</p>
+            <label class="check"><input type="checkbox" data-path="isNew" data-kind="bool"${state.isNew ? ' checked' : ''} /> Nowość – pokazuj w zakładce „Nowości”</label>
             ${field(
               'categoryId',
               'Kategoria',
@@ -419,6 +435,13 @@ export function productEditorView(id: number | null): View {
             ${field('family', 'Rodzina zapachowa', text('family', state.family, 'maxlength="80"'), 'np. Zielony · drzewny')}
             ${field('perfumer', 'Perfumiarz', text('perfumer', state.perfumer, 'maxlength="80"'))}
             ${field('year', 'Rok premiery', text('year', state.year === null ? '' : String(state.year), 'inputmode="numeric" data-kind="int" maxlength="4"'))}
+            <fieldset class="field seasons" data-field="seasons">
+              <legend>Pora roku</legend>
+              <div class="seasons__list">
+                ${SEASONS.map((season) => `<label class="check"><input type="checkbox" data-season="${season}"${state.seasons.includes(season) ? ' checked' : ''} /> ${SEASON_LABEL[season]}</label>`).join('')}
+              </div>
+              <p class="field__hint">Filtr „Pora roku” w katalogu.</p>
+            </fieldset>
             ${SPECS.map(([key, label, hint]) => field(`specs.${key}`, label, text(`specs.${key}`, state.specs[key], `maxlength="60" placeholder="${hint}"`))).join('')}
           </section>
 
@@ -628,8 +651,13 @@ export function productEditorView(id: number | null): View {
       if (el.dataset.path === 'slug') slugTouched = true;
     } else if (el.dataset.size !== undefined) {
       const size = state.sizes[Number(el.dataset.size)];
-      size[el.dataset.key as 'ml' | 'price'] = parseNumber(el.value);
+      if (el.dataset.key === 'availability') size.availability = el.value as Availability;
+      else size[el.dataset.key as 'ml' | 'price'] = parseNumber(el.value);
       root.querySelector(`[data-unit="${el.dataset.size}"]`)!.textContent = unitPrice(size);
+    } else if (el.dataset.season) {
+      const season = el.dataset.season as Season;
+      const on = (el as HTMLInputElement).checked;
+      state.seasons = SEASONS.filter((s) => (s === season ? on : state.seasons.includes(s)));
     } else if (el.dataset.photo !== undefined) {
       const photo = state.media.photos[Number(el.dataset.photo)];
       if (el.dataset.key === 'cutout') {
@@ -684,7 +712,7 @@ export function productEditorView(id: number | null): View {
 
     if (button.matches('[data-add-size]')) {
       const largest = Math.max(0, ...state.sizes.map((s) => s.ml).filter(Number.isFinite));
-      state.sizes.push({ ml: largest ? largest * 2 : 50, price: NaN });
+      state.sizes.push({ ml: largest ? largest * 2 : 50, price: NaN, availability: 'available' });
       rerender('[data-sizes]', sizesMarkup());
       root.querySelector<HTMLInputElement>(`[data-size="${state.sizes.length - 1}"][data-key="price"]`)?.focus();
     } else if (button.dataset.removeSize !== undefined) {

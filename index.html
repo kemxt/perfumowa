@@ -24,6 +24,8 @@
         <nav class="site-nav" aria-label="Główna">
           <ul>
             <li><a href="/perfumy" data-nav>Perfumy</a></li>
+            <li class="site-nav__extra"><a href="/perfumy?nowosci" data-nav>Nowości</a></li>
+            <li class="site-nav__extra" data-hide-without-page="kontakt"><a href="/kontakt" data-nav>Kontakt</a></li>
           </ul>
         </nav>
         <a class="brand" href="/" aria-label="Perfumowa Aura – strona główna">Aura</a>
@@ -39,24 +41,20 @@
           <p class="brand brand--footer">Aura</p>
           <p class="site-footer__text">Perfumy niszowe komponowane i&nbsp;rozlewane w&nbsp;Krakowie, w&nbsp;partiach po kilkaset flakonów.</p>
         </div>
-        <nav class="site-footer__col site-footer__col--products" aria-label="Zapachy">
-          <h2 class="label">Zapachy</h2>
-          <!-- Lista z bazy podmieniana w src/main.ts; poniższa działa bez JS. -->
-          <ul data-footer-products>
-            <li><a href="/perfumy/figowy-sad">Figowy Sad</a></li>
-            <li><a href="/perfumy/sol-i-jalowiec">Sól i Jałowiec</a></li>
-            <li><a href="/perfumy/bursztynowa-noc">Bursztynowa Noc</a></li>
-            <li><a href="/perfumy/bialy-bez">Biały Bez</a></li>
-            <li><a href="/perfumy/kadzidlo-i-deszcz">Kadzidło i Deszcz</a></li>
-            <li><a href="/perfumy/gorzka-pomarancza">Gorzka Pomarańcza</a></li>
+        <!-- Listy wypełnia src/main.ts danymi z panelu (kategorie, strony, ustawienia). -->
+        <nav class="site-footer__col site-footer__col--catalog" aria-label="Katalog">
+          <h2 class="label">Katalog</h2>
+          <ul data-footer-catalog>
+            <li><a href="/perfumy">Wszystkie perfumy</a></li>
           </ul>
+        </nav>
+        <nav class="site-footer__col site-footer__col--info" aria-label="Informacje">
+          <h2 class="label">Informacje</h2>
+          <ul data-footer-pages></ul>
         </nav>
         <div class="site-footer__col site-footer__col--contact">
           <h2 class="label">Kontakt</h2>
-          <ul>
-            <li><a href="mailto:hello@example.com" data-external>hello@example.com</a></li>
-            <li>Kraków, Polska</li>
-          </ul>
+          <ul data-footer-contact></ul>
         </div>
         <p class="site-footer__legal">
           <span>© 2026 Perfumowa Aura</span>

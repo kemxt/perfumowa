@@ -1,12 +1,25 @@
-/** Warunki sklepu – jedno miejsce dla hero, koszyka, paska zakupu i danych strukturalnych. */
+import type { ShopSettings } from '../../shared/catalog';
+
+/**
+ * Warunki sklepu – jedno miejsce dla hero, koszyka, paska zakupu i danych strukturalnych.
+ * Darmowa dostawa, czas realizacji i dni na zwrot pochodzą z panelu (Ustawienia) – applySettings.
+ */
 export const SHOP = {
-  currency: 'PLN',
-  freeShippingFrom: 300,
+  currency: 'PLN' as const,
+  /** null = bez darmowej dostawy */
+  freeShippingFrom: 300 as number | null,
   returnDays: 30,
+  processingTime: '1–2 dni robocze',
   sample: { ml: 2, price: 19 },
   /** Pojemność oznaczana jako „Najczęściej wybierana” i zaznaczana domyślnie. */
   popularMl: 50,
-} as const;
+};
+
+export function applySettings(settings: ShopSettings): void {
+  SHOP.freeShippingFrom = settings.shipping.freeFrom;
+  SHOP.returnDays = settings.returns.days;
+  SHOP.processingTime = settings.shipping.processingTime || SHOP.processingTime;
+}
 
 const unitFormat = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: SHOP.currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const formatUnitPrice = (price: number, ml: number) => `${unitFormat.format(price / ml)} / ml`;

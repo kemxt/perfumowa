@@ -2,7 +2,7 @@ import { guard, login, logout } from './auth';
 import * as db from './db';
 import { HttpError, json, readJson } from './http';
 import { deleteMedia, mediaKeys, uploadFile, uploadPhoto } from './media';
-import { idParam, validateCategory, validateOrder, validateProduct } from './validate';
+import { idParam, validateCategory, validateOrder, validatePage, validateProduct, validateSettings } from './validate';
 
 interface Context {
   request: Request;
@@ -97,6 +97,44 @@ const routes: [method: string, path: RegExp, handler: Handler][] = [
     async ({ env, params }) => {
       await db.deleteCategory(env.DB, idParam(params[0]));
       return json(await db.listCategories(env.DB));
+    },
+  ],
+
+  ['GET', /^settings$/, async ({ env }) => json(await db.getSettings(env.DB))],
+  [
+    'PUT',
+    /^settings$/,
+    async ({ request, env }) => {
+      await db.saveSettings(env.DB, validateSettings(await readJson(request)));
+      return json(await db.getSettings(env.DB));
+    },
+  ],
+
+  ['GET', /^pages$/, async ({ env }) => json(await db.listPages(env.DB))],
+  [
+    'POST',
+    /^pages$/,
+    async ({ request, env }) => {
+      const id = await db.createPage(env.DB, validatePage(await readJson(request)));
+      return json(await db.getPage(env.DB, id), { status: 201 });
+    },
+  ],
+  ['GET', /^pages\/(\d+)$/, async ({ env, params }) => json(await db.getPage(env.DB, idParam(params[0])))],
+  [
+    'PUT',
+    /^pages\/(\d+)$/,
+    async ({ request, env, params }) => {
+      const id = idParam(params[0]);
+      await db.updatePage(env.DB, id, validatePage(await readJson(request)));
+      return json(await db.getPage(env.DB, id));
+    },
+  ],
+  [
+    'DELETE',
+    /^pages\/(\d+)$/,
+    async ({ env, params }) => {
+      await db.deletePage(env.DB, idParam(params[0]));
+      return json({ ok: true });
     },
   ],
 

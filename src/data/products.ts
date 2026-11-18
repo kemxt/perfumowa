@@ -1,7 +1,8 @@
-import type { Catalog, CatalogProduct, Category } from '../../shared/catalog';
+import { DEFAULT_SETTINGS, SEASON_LABEL, type Catalog, type CatalogProduct, type Category, type PageLink, type Season, type ShopSettings } from '../../shared/catalog';
 import type { LabelConfig } from '../lib/bottle-label';
+import { applySettings } from './shop';
 
-export type { Category, ProductPhoto, ProductSize } from '../../shared/catalog';
+export type { Category, PageLink, ProductPhoto, ProductSize, ShopSettings } from '../../shared/catalog';
 
 /**
  * Produkty i kategorie pochodzą z bazy D1 (GET /api/catalog, edycja w panelu /admin/).
@@ -15,6 +16,9 @@ export interface Product extends Omit<CatalogProduct, 'labelConfig'> {
 
 export let products: readonly Product[] = [];
 export let categories: readonly Category[] = [];
+export let settings: ShopSettings = DEFAULT_SETTINGS;
+/** Opublikowane strony informacyjne (stopka, router). */
+export let pages: readonly PageLink[] = [];
 
 /** Pobiera katalog raz, przed startem routera (index.html robi preload tego adresu). */
 export async function loadCatalog(): Promise<void> {
@@ -23,6 +27,9 @@ export async function loadCatalog(): Promise<void> {
   const catalog = (await response.json()) as Catalog;
   products = catalog.products as Product[];
   categories = catalog.categories;
+  settings = catalog.settings;
+  pages = catalog.pages;
+  applySettings(settings);
 }
 
 export function getProduct(slug: string): Product | undefined {
@@ -32,6 +39,13 @@ export function getProduct(slug: string): Product | undefined {
 export function getCategory(slug: string | null): Category | undefined {
   return categories.find((c) => c.slug === slug);
 }
+
+/** „Wiosna · lato” */
+export const seasonsLabel = (seasons: readonly Season[]) =>
+  seasons.map((s, i) => (i ? SEASON_LABEL[s].toLocaleLowerCase('pl') : SEASON_LABEL[s])).join(' · ');
+
+/** Każda pojemność chwilowo niedostępna. */
+export const isSoldOut = (p: Pick<Product, 'sizes'>) => p.sizes.length > 0 && p.sizes.every((s) => s.availability === 'unavailable');
 
 /** Kolejne zapachy po danym (w kółko), do sekcji „Inne zapachy”. */
 export function otherProducts(slug: string, count = 3): Product[] {

@@ -1,10 +1,12 @@
 import './admin.css';
 import { RequestError, api, setUnauthorizedHandler } from './api';
 import { categoriesView } from './categories';
+import { pageEditorView, pagesListView } from './pages';
 import { productEditorView, productListView } from './products';
+import { settingsView } from './settings';
 import { esc, toast, type View } from './ui';
 
-/** Panel admina: hash routing (#/produkty, #/produkty/12, #/kategorie), sesja w ciasteczku. */
+/** Panel admina: hash routing (#/produkty, #/produkty/12, #/kategorie, #/strony, #/ustawienia), sesja w ciasteczku. */
 
 const root = document.getElementById('admin');
 if (!root) throw new Error('Brak #admin');
@@ -15,6 +17,8 @@ root.innerHTML = `
     <nav class="topbar__nav" aria-label="Sekcje panelu">
       <a href="#/produkty" data-nav="produkty">Produkty</a>
       <a href="#/kategorie" data-nav="kategorie">Kategorie</a>
+      <a href="#/strony" data-nav="strony">Strony</a>
+      <a href="#/ustawienia" data-nav="ustawienia">Ustawienia</a>
     </nav>
     <div class="topbar__actions">
       <a href="/" target="_blank" rel="noopener">Zobacz sklep <span aria-hidden="true">↗</span></a>
@@ -54,6 +58,10 @@ function resolve(hash: string): View {
   const product = path.match(/^produkty\/(nowy|\d+)$/);
   if (product) return productEditorView(product[1] === 'nowy' ? null : Number(product[1]));
   if (path === 'kategorie') return categoriesView();
+  const page = path.match(/^strony\/(nowa|\d+)$/);
+  if (page) return pageEditorView(page[1] === 'nowa' ? null : Number(page[1]));
+  if (path === 'strony') return pagesListView();
+  if (path === 'ustawienia') return settingsView();
   return productListView();
 }
 

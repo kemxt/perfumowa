@@ -4,7 +4,8 @@ import { bottleMarkup, mountBottle } from '../components/bottle';
 import { galleryMarkup, mountGallery } from '../components/gallery';
 import { mountProductCards, productCardMarkup } from '../components/product-card';
 import { createRotator, rotatorControlsMarkup, type RotatorValue } from '../components/rotator';
-import { formatPrice, fromPrice, getProduct, otherProducts, type Product } from '../data/products';
+import { AVAILABILITY_LABEL } from '../../shared/catalog';
+import { formatPrice, fromPrice, getCategory, getProduct, isSoldOut, otherProducts, pages, seasonsLabel, type Product } from '../data/products';
 import { SHOP } from '../data/shop';
 import { attachLabelDebug, isDebugMode, type BottleLabel } from '../lib/bottle-label';
 import { addToCart, type CartLine } from '../lib/cart';
@@ -62,12 +63,20 @@ const capitalize = (s: string) => s.charAt(0).toLocaleUpperCase('pl') + s.slice(
 
 const ICON_CHEVRON = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="m3 6 5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`;
 
+/** Link do strony informacyjnej – tylko gdy jest opublikowana. */
+const pageLink = (slug: string, label: string) => (pages.some((p) => p.slug === slug) ? `<a class="link" href="/${slug}">${label}</a>` : '');
+
 /** Puste wartości (np. brak roku przy produkcie dodanym w panelu) pomijamy. */
 const table = (rows: [string, string][]) =>
   `<dl class="table">${rows.filter(([, v]) => v).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
 
 function template(p: Product): string {
-  const selected = p.sizes.find((s) => s.ml === SHOP.popularMl) ?? p.sizes[0];
+  // Domyślnie najpopularniejsza dostępna pojemność.
+  const buyable = p.sizes.filter((s) => s.availability !== 'unavailable');
+  const selected = buyable.find((s) => s.ml === SHOP.popularMl) ?? buyable[0] ?? p.sizes[0];
+  const soldOut = isSoldOut(p);
+  const category = getCategory(p.category);
+  const shippingLinks = [pageLink('dostawa-i-platnosci', 'Dostawa i płatności'), pageLink('zwroty', 'Zwroty')].filter(Boolean).join(' · ');
   const join = (items: string[]) => items.map((t, i) => (i ? t.charAt(0).toLocaleLowerCase('pl') + t.slice(1) : t)).join(', ');
 
   const story = [
@@ -90,7 +99,7 @@ function template(p: Product): string {
     },
     {
       title: 'Wysyłka i zwroty',
-      body: `<p>Zamówienia wysyłamy w ciągu 1–2 dni roboczych kurierem lub do paczkomatu. Dostawa jest bezpłatna od ${formatPrice(SHOP.freeShippingFrom)}. Nieotwarty flakon możesz zwrócić w ciągu ${SHOP.returnDays} dni.</p>`,
+      body: `<p>Czas realizacji zamówienia: ${esc(SHOP.processingTime)}.${SHOP.freeShippingFrom === null ? '' : ` Dostawa jest bezpłatna od ${formatPrice(SHOP.freeShippingFrom)}.`} Nieotwarty flakon możesz zwrócić w ciągu ${SHOP.returnDays} dni.</p>${shippingLinks ? `<p>${shippingLinks}</p>` : ''}`,
     },
     {
       title: 'Stosowanie i przechowywanie',
@@ -104,7 +113,7 @@ function template(p: Product): string {
     <section class="stage surface-dark" data-stage aria-labelledby="product-title">
       <div class="stage__inner grid">
         <div class="stage__intro">
-          <p class="label">${esc(p.concentration)}</p>
+          <p class="label">${esc(p.concentration)}${p.isNew ? ' · <span class="tag">Nowość</span>' : ''}</p>
           <h1 id="product-title" class="t-display">${esc(p.name)}</h1>
           <p class="stage__tagline">${esc(p.tagline)}</p>
           <div class="stage__buy">
@@ -161,11 +170,12 @@ function template(p: Product): string {
           ])}
           <h3 class="label">Profil</h3>
           ${table([
+            ['Kategoria', category?.name ?? ''],
             ['Rodzina', capitalize(p.family.toLocaleLowerCase('pl'))],
             ['Koncentracja', p.concentration],
             ['Trwałość', p.specs.longevity],
             ['Projekcja', capitalize(p.specs.sillage)],
-            ['Pora roku', capitalize(p.specs.season)],
+            ['Pora roku', seasonsLabel(p.seasons)],
             ['Okazja', capitalize(p.specs.occasion)],
             ['Perfumiarz', p.perfumer],
             ['Premiera', p.year ? String(p.year) : ''],
@@ -192,11 +202,13 @@ function template(p: Product): string {
               ${p.sizes
                 .map(
                   (s) => `
-                <label class="size">
-                  <input type="radio" name="size" value="${s.ml}"${s === selected ? ' checked' : ''} />
+                <label class="size${s.availability === 'unavailable' ? ' is-unavailable' : ''}">
+                  <input type="radio" name="size" value="${s.ml}"${s === selected && !soldOut ? ' checked' : ''}${s.availability === 'unavailable' ? ' disabled' : ''} />
                   <span class="size__radio" aria-hidden="true"></span>
                   <span class="size__ml">${s.ml} ml</span>
-                  <span class="size__unit">${unitFormat.format(s.price / s.ml)} / ml</span>
+                  <span class="size__unit">${
+                    s.availability === 'available' ? `${unitFormat.format(s.price / s.ml)} / ml` : `<span class="size__stock">${AVAILABILITY_LABEL[s.availability]}</span>`
+                  }</span>
                   <span class="size__price">${formatPrice(s.price)}</span>
                 </label>`,
                 )
@@ -215,15 +227,16 @@ function template(p: Product): string {
               <p class="buy__total"><span class="label">Razem</span><strong data-total>${formatPrice(selected.price)}</strong></p>
             </div>
 
-            <button class="btn btn--primary btn--block" type="submit">Dodaj do koszyka</button>
+            <button class="btn btn--primary btn--block" type="submit"${soldOut ? ' disabled' : ''}>${soldOut ? 'Chwilowo niedostępny' : 'Dodaj do koszyka'}</button>
             <button class="btn btn--quiet btn--block" type="button" data-sample>Zamów próbkę ${SHOP.sample.ml} ml · ${formatPrice(SHOP.sample.price)}</button>
             <p class="buy__status" role="status" data-status></p>
 
             <ul class="buy__info">
-              <li>Wysyłka w 1–2 dni robocze</li>
-              <li>Darmowa dostawa od ${formatPrice(SHOP.freeShippingFrom)}</li>
+              <li>Wysyłka w ${esc(SHOP.processingTime)}</li>
+              ${SHOP.freeShippingFrom === null ? '' : `<li>Darmowa dostawa od ${formatPrice(SHOP.freeShippingFrom)}</li>`}
               <li>Zwrot do ${SHOP.returnDays} dni</li>
             </ul>
+            ${shippingLinks ? `<p class="buy__links">${shippingLinks}</p>` : ''}
           </form>
         </div>
 
@@ -275,7 +288,7 @@ function template(p: Product): string {
       <div class="buybar__inner">
         <p class="buybar__id"><span class="buybar__name">${esc(p.name)}</span><span data-bar-size>${selected.ml} ml</span></p>
         <p class="buybar__price" data-bar-price>${formatPrice(selected.price)}</p>
-        <button type="button" class="btn btn--primary btn--small" data-bar-add>Dodaj do koszyka</button>
+        <button type="button" class="btn btn--primary btn--small" data-bar-add${soldOut ? " disabled" : ""}>${soldOut ? "Niedostępny" : "Dodaj do koszyka"}</button>
       </div>
     </div>
   </main>`;

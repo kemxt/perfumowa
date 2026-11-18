@@ -99,10 +99,15 @@ export class Router {
   }
 
   private updateNav(pathname: string): void {
-    document.querySelectorAll<HTMLAnchorElement>('[data-nav]').forEach((a) => {
-      if (a.getAttribute('href')?.startsWith('#')) return;
-      const path = new URL(a.href).pathname;
-      const active = path === '/' ? pathname === '/' : pathname.startsWith(path);
+    const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-nav]')].filter((a) => !a.getAttribute('href')?.startsWith('#'));
+    // Link z parametrem (np. /perfumy?nowosci) wygrywa z ogólnym /perfumy, gdy pasuje dokładnie.
+    const exact = links.find((a) => {
+      const url = new URL(a.href);
+      return url.search && url.pathname === pathname && url.search === window.location.search;
+    });
+    links.forEach((a) => {
+      const url = new URL(a.href);
+      const active = exact ? a === exact : !url.search && (url.pathname === '/' ? pathname === '/' : pathname.startsWith(url.pathname));
       if (active) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     });

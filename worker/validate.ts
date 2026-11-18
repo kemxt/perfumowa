@@ -1,13 +1,20 @@
 import labelDefaults from '../src/lib/bottle-label/defaults.json';
 import {
+  AVAILABILITY,
   PHOTO_MIME,
+  RESERVED_SLUGS,
+  SEASONS,
   SLUG_PATTERN,
   type AdminCategoryInput,
+  type AdminPageInput,
   type AdminProductInput,
+  type Availability,
   type CatalogProduct,
   type PhotoFormat,
   type ProductPhoto,
   type ProductSize,
+  type ShippingMethod,
+  type ShopSettings,
 } from '../shared/catalog';
 import { HttpError } from './http';
 
@@ -52,6 +59,13 @@ class Checker {
     return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
   }
 
+  /** Kwota w złotych z najwyżej dwoma miejscami po przecinku. */
+  money(value: unknown, path: string, max = 1_000_000): number {
+    const n = this.number(value, path, { min: 0, max, integer: false });
+    if (Math.abs(n * 100 - Math.round(n * 100)) > 1e-6) this.fail(path, 'Kwota może mieć najwyżej dwa miejsca po przecinku.');
+    return n;
+  }
+
   /** Ścieżka do pliku z repo (/assets/...) albo wgranego w panelu (/media/...). */
   mediaPath(value: unknown, path: string, required = false): string {
     const text = this.text(value, path, { max: 300, required });
@@ -67,7 +81,8 @@ class Checker {
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const PALETTE_KEYS = ['bg', 'fg', 'liquid', 'paper', 'ink', 'cap'] as const;
 const LAYERS = ['top', 'heart', 'base'] as const;
-const SPEC_KEYS = ['longevity', 'sillage', 'season', 'occasion'] as const;
+const SPEC_KEYS = ['longevity', 'sillage', 'occasion'] as const;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LABEL_KEYS = new Set(Object.keys(labelDefaults));
 
 export function validateProduct(raw: unknown): AdminProductInput {
@@ -108,14 +123,16 @@ export function validateProduct(raw: unknown): AdminProductInput {
   const sizes: ProductSize[] = c.list(input.sizes, 'sizes', 10).map((item, i) => {
     const size = c.object(item);
     const ml = c.number(size.ml, `sizes.${i}.ml`, { min: 1, max: 5000 });
-    const price = c.number(size.price, `sizes.${i}.price`, { min: 0, max: 1_000_000, integer: false });
-    if (Math.abs(price * 100 - Math.round(price * 100)) > 1e-6) c.fail(`sizes.${i}.price`, 'Cena może mieć najwyżej dwa miejsca po przecinku.');
-    return { ml, price };
+    const price = c.money(size.price, `sizes.${i}.price`);
+    const availability: Availability = AVAILABILITY.includes(size.availability as Availability) ? (size.availability as Availability) : 'available';
+    return { ml, price, availability };
   });
   sizes.forEach((s, i) => {
     if (sizes.findIndex((o) => o.ml === s.ml) !== i) c.fail(`sizes.${i}.ml`, 'Ta pojemność już jest na liście.');
   });
   if (status === 'published' && !sizes.length) c.fail('sizes', 'Opublikowany produkt musi mieć co najmniej jedną pojemność z ceną.');
+
+  const seasons = SEASONS.filter((season) => c.list(input.seasons, 'seasons', SEASONS.length).includes(season));
 
   const specsIn = c.object(input.specs);
   const specs = Object.fromEntries(SPEC_KEYS.map((k) => [k, c.text(specsIn[k], `specs.${k}`, { max: 60 })])) as CatalogProduct['specs'];
@@ -179,6 +196,8 @@ export function validateProduct(raw: unknown): AdminProductInput {
     concentration: c.text(input.concentration, 'concentration', { max: 60 }),
     year,
     perfumer: c.text(input.perfumer, 'perfumer', { max: 80 }),
+    seasons,
+    isNew: input.isNew === true,
     rating,
     description,
     story,
@@ -216,4 +235,79 @@ export function idParam(value: string | undefined): number {
   const id = Number(value);
   if (!Number.isInteger(id) || id < 1) throw new HttpError(404, 'Nie znaleziono.');
   return id;
+}
+
+export function validateSettings(raw: unknown): ShopSettings {
+  const c = new Checker();
+  const input = c.object(raw);
+  const company = c.object(input.company);
+  const contact = c.object(input.contact);
+  const shipping = c.object(input.shipping);
+  const payments = c.object(input.payments);
+  const returns = c.object(input.returns);
+
+  const email = c.text(contact.email, 'contact.email', { max: 120 });
+  if (email && !EMAIL.test(email)) c.fail('contact.email', 'Nieprawidłowy adres e-mail.');
+
+  const methods: ShippingMethod[] = c.list(shipping.methods, 'shipping.methods', 10).map((item, i) => {
+    const m = c.object(item);
+    return {
+      name: c.text(m.name, `shipping.methods.${i}.name`, { max: 80, required: true }),
+      price: c.money(m.price, `shipping.methods.${i}.price`, 10_000),
+      time: c.text(m.time, `shipping.methods.${i}.time`, { max: 60 }),
+    };
+  });
+
+  const freeRaw = shipping.freeFrom;
+  const freeFrom = freeRaw === null || freeRaw === undefined || freeRaw === '' ? null : c.money(freeRaw, 'shipping.freeFrom', 100_000);
+
+  const paymentMethods = [
+    ...new Set(
+      c
+        .list(payments.methods, 'payments.methods', 15)
+        .map((m, i) => c.text(m, `payments.methods.${i}`, { max: 60 }))
+        .filter(Boolean),
+    ),
+  ];
+
+  // Komunikat o minimum ustawowym ma pierwszeństwo przed ogólnym błędem zakresu.
+  if (Number(returns.days) < 14) c.fail('returns.days', 'Ustawowo konsument ma co najmniej 14 dni na odstąpienie od umowy.');
+  const days = c.number(returns.days, 'returns.days', { min: 14, max: 365 });
+
+  const settings: ShopSettings = {
+    company: {
+      name: c.text(company.name, 'company.name', { max: 160 }),
+      address: c.text(company.address, 'company.address', { max: 300 }),
+      nip: c.text(company.nip, 'company.nip', { max: 20 }),
+      regon: c.text(company.regon, 'company.regon', { max: 20 }),
+    },
+    contact: {
+      email,
+      phone: c.text(contact.phone, 'contact.phone', { max: 40 }),
+      hours: c.text(contact.hours, 'contact.hours', { max: 400 }),
+    },
+    shipping: {
+      methods,
+      freeFrom,
+      processingTime: c.text(shipping.processingTime, 'shipping.processingTime', { max: 80 }),
+      tracking: c.text(shipping.tracking, 'shipping.tracking', { max: 600 }),
+    },
+    payments: { methods: paymentMethods, note: c.text(payments.note, 'payments.note', { max: 600 }) },
+    returns: { days },
+  };
+  c.done();
+  return settings;
+}
+
+export function validatePage(raw: unknown): AdminPageInput {
+  const c = new Checker();
+  const input = c.object(raw);
+  const title = c.text(input.title, 'title', { max: 120, required: true });
+  const slug = c.text(input.slug, 'slug', { max: 80, required: true });
+  if (slug && !SLUG_PATTERN.test(slug)) c.fail('slug', 'Tylko małe litery bez polskich znaków, cyfry i myślniki, np. regulamin.');
+  else if (RESERVED_SLUGS.includes(slug)) c.fail('slug', 'Ten adres jest zajęty przez sklep.');
+  const body = c.text(input.body, 'body', { max: 100_000 });
+  const page: AdminPageInput = { title, slug, body, published: input.published === true };
+  c.done();
+  return page;
 }

@@ -200,13 +200,18 @@ function render(): void {
     .join('')}</ul>`;
 
   const total = subtotal();
-  const missing = Math.max(0, SHOP.freeShippingFrom - total);
-  const progress = Math.min(1, total / SHOP.freeShippingFrom);
+  const freeFrom = SHOP.freeShippingFrom;
+  const missing = freeFrom === null ? 0 : Math.max(0, freeFrom - total);
+  const progress = freeFrom ? Math.min(1, total / freeFrom) : 1;
   foot.innerHTML = `
-    <div class="shipping">
+    ${
+      freeFrom === null
+        ? ''
+        : `<div class="shipping">
       <p>${missing ? `Do darmowej dostawy brakuje <strong>${formatPrice(missing)}</strong>` : 'Masz darmową dostawę'}</p>
       <div class="shipping__bar" aria-hidden="true"><span style="transform:scaleX(${progress.toFixed(3)})"></span></div>
-    </div>
+    </div>`
+    }
     <p class="drawer__gift">Gratisowe próbki do każdego zamówienia</p>
     <p class="drawer__total"><span>Razem</span><strong>${formatPrice(total)}</strong></p>
     <button type="button" class="btn btn--primary btn--block" data-checkout>Przejdź do kasy</button>

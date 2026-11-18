@@ -1,5 +1,5 @@
 import { gsap } from 'gsap';
-import { formatPrice, fromPrice, getProduct, productUrl, type Product } from '../data/products';
+import { formatPrice, fromPrice, getProduct, isSoldOut, productUrl, type Product } from '../data/products';
 import type { BottleLabel } from '../lib/bottle-label';
 import { esc } from '../lib/dom';
 import { prefersReducedMotion } from '../lib/motion';
@@ -8,16 +8,21 @@ import { bottleMarkup, mountBottle } from './bottle';
 export function productCardMarkup(product: Product, headingLevel: 2 | 3 = 3): string {
   const from = fromPrice(product);
   const h = `h${headingLevel}`;
+  const badges = [product.isNew ? 'Nowość' : '', isSoldOut(product) ? 'Niedostępny' : ''].filter(Boolean);
+  // Po jednej nucie z każdej warstwy: głowa · serce · baza.
+  const notes = [product.notes.top[0], product.notes.heart[0], product.notes.base[0]].filter(Boolean);
   return `
     <article class="card" data-card="${esc(product.slug)}">
       <a class="card__link" href="${productUrl(product)}">
         <div class="card__stage">
+          ${badges.length ? `<p class="card__badges">${badges.map((b) => `<span class="tag">${b}</span>`).join('')}</p>` : ''}
           ${bottleMarkup(product, { variant: 'card', alt: '' })}
         </div>
         <div class="card__body">
           <${h} class="card__title">${esc(product.name)}</${h}>
           <p class="card__meta">${esc(product.concentration)} · ${esc(product.family.toLocaleLowerCase('pl'))}</p>
           <p class="card__price">od ${formatPrice(from)}</p>
+          ${notes.length ? `<p class="card__notes"><span class="visually-hidden">Nuty: </span>${notes.map(esc).join(' · ')}</p>` : ''}
         </div>
       </a>
     </article>`;

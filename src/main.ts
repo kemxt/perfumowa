@@ -1,10 +1,11 @@
 import './styles/main.css';
-import { loadCatalog, productUrl, products } from './data/products';
+import { categories, loadCatalog, pages, productUrl, products, settings } from './data/products';
 import { esc } from './lib/dom';
 import { initSmoothScroll } from './lib/smooth-scroll';
+import { catalogPage } from './pages/catalog';
+import { contentPage } from './pages/content';
 import { notFoundPage } from './pages/not-found';
 import { productPage } from './pages/product';
-import { stubPage } from './pages/stub';
 import { Router } from './router';
 
 initSmoothScroll();
@@ -26,10 +27,40 @@ try {
   throw error;
 }
 
-const footerList = document.querySelector('[data-footer-products]');
-if (footerList) {
-  footerList.innerHTML = products.map((p) => `<li><a href="${productUrl(p)}">${esc(p.name)}</a></li>`).join('');
+/** Stopka z danych z panelu: kategorie, opublikowane strony, kontakt. */
+function renderFooter(): void {
+  const list = (selector: string, items: string[]) => {
+    const el = document.querySelector(selector);
+    if (el) el.innerHTML = items.map((item) => `<li>${item}</li>`).join('');
+  };
+  const link = (href: string, label: string) => `<a href="${esc(href)}">${esc(label)}</a>`;
+
+  list('[data-footer-catalog]', [
+    link('/perfumy', 'Wszystkie perfumy'),
+    ...categories.filter((c) => products.some((p) => p.category === c.slug)).map((c) => link(`/perfumy?kategoria=${c.slug}`, c.name)),
+    ...(products.some((p) => p.isNew) ? [link('/perfumy?nowosci', 'Nowości')] : []),
+  ]);
+  list(
+    '[data-footer-pages]',
+    pages.map((p) => link(`/${p.slug}`, p.title)),
+  );
+
+  const { contact } = settings;
+  list('[data-footer-contact]', [
+    contact.email ? `<a href="mailto:${esc(contact.email)}" data-external>${esc(contact.email)}</a>` : '',
+    contact.phone ? `<a href="tel:${esc(contact.phone.replace(/[^\d+]/g, ''))}" data-external>${esc(contact.phone)}</a>` : '',
+    ...contact.hours
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => `<span class="site-footer__hours">${esc(l.trim())}</span>`),
+  ].filter(Boolean));
+
+  document.querySelectorAll<HTMLElement>('[data-hide-without-page]').forEach((el) => {
+    el.hidden = !pages.some((p) => p.slug === el.dataset.hideWithoutPage);
+  });
 }
+
+renderFooter();
 
 new Router(
   view,
@@ -37,7 +68,9 @@ new Router(
     { path: /^\/perfumy\/([a-z0-9-]+)\/?$/, page: ([slug]) => productPage(slug) },
     // Etap 1: bez strony głównej – start od pierwszego zapachu. Do podmiany w etapie 2.
     { path: /^\/$/, page: () => (products[0] ? productUrl(products[0]) : '/perfumy') },
-    { path: /^\/perfumy\/?$/, page: () => stubPage() },
+    { path: /^\/perfumy\/?$/, page: () => catalogPage() },
+    // Strony z panelu: /regulamin, /kontakt, /dostawa-i-platnosci…
+    { path: /^\/([a-z0-9-]+)\/?$/, page: ([slug]) => (pages.some((p) => p.slug === slug) ? contentPage(slug) : notFoundPage()) },
   ],
   notFoundPage,
 ).start();
