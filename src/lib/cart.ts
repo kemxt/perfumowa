@@ -1,14 +1,21 @@
-import { formatPrice } from '../data/products';
+import type { ApiError } from '../../shared/catalog';
+import { MAX_QTY, type CheckoutRequest, type CheckoutResponse } from '../../shared/orders';
+import { formatPrice, getProduct, pages } from '../data/products';
 import { SHOP } from '../data/shop';
 import { track, type AnalyticsItem } from './analytics';
 import { esc } from './dom';
 import { lockScroll, unlockScroll } from './smooth-scroll';
 
-/** Atrapa koszyka: stan w sessionStorage, panel boczny, bez backendu. */
+/**
+ * Koszyk: stan w sessionStorage, panel boczny. „Przejdź do kasy” zakłada zamówienie
+ * (POST /api/checkout) i przenosi do kasy Stripe; ceny liczy Worker z bazy.
+ */
 export interface CartLine {
   /** Unikalny klucz pozycji, np. "figowy-sad-50". */
   key: string;
   slug: string;
+  /** Pojemność w ml albo próbka – po tym kasa rozpoznaje wariant. */
+  size: number | 'sample';
   name: string;
   variant: string;
   price: number;
@@ -25,7 +32,9 @@ let returnFocus: HTMLElement | null = null;
 
 function load(): CartLine[] {
   try {
-    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '[]') as CartLine[];
+    const stored = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '[]') as CartLine[];
+    // Pozycje sprzed kasy (bez pojemności) nie dadzą się zamówić – pomijamy je.
+    return Array.isArray(stored) ? stored.filter((l) => l && (l.size === 'sample' || typeof l.size === 'number')) : [];
   } catch {
     return [];
   }
@@ -56,7 +65,7 @@ export function cartItems(): AnalyticsItem[] {
 
 export function addToCart(line: Omit<CartLine, 'qty'>, qty = 1): void {
   const existing = lines.find((l) => l.key === line.key);
-  if (existing) existing.qty = Math.min(9, existing.qty + qty);
+  if (existing) existing.qty = Math.min(MAX_QTY, existing.qty + qty);
   else lines.push({ ...line, qty });
   save();
   render();
@@ -64,6 +73,23 @@ export function addToCart(line: Omit<CartLine, 'qty'>, qty = 1): void {
   openCart();
 }
 
+/** Po opłaconym zamówieniu (strona podziękowania). */
+export function clearCart(): void {
+  lines = [];
+  save();
+  render();
+}
+
+/** Ceny z bieżącego katalogu – koszyk mógł powstać przed zmianą ceny w panelu. */
+function refreshPrices(): void {
+  for (const line of lines) {
+    const price = line.size === 'sample' ? SHOP.sample.price : getProduct(line.slug)?.sizes.find((s) => s.ml === line.size)?.price;
+    if (price !== undefined) line.price = price;
+  }
+  save();
+}
+
+/** Wywołać po loadCatalog() – korzysta z cen i listy stron. */
 export function initCart(): void {
   root = document.createElement('div');
   root.className = 'drawer';
@@ -87,6 +113,12 @@ export function initCart(): void {
     const opener = (event.target as Element).closest<HTMLElement>('[data-cart-open]');
     if (opener) openCart(opener);
   });
+  // Powrót ze Stripe przyciskiem „wstecz” przywraca stronę z pamięci (bfcache) – razem
+  // z zablokowanym przyciskiem kasy. Rysujemy koszyk od nowa.
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) render();
+  });
+  refreshPrices();
   render();
 }
 
@@ -98,6 +130,14 @@ export function openCart(trigger?: HTMLElement): void {
   requestAnimationFrame(() => root?.classList.add('is-open'));
   root.querySelector<HTMLElement>('.drawer__close')?.focus();
   track('open_cart', cartItems());
+}
+
+/** Otwiera koszyk z komunikatem pod przyciskiem kasy (np. po przerwanej płatności). */
+export function openCartWithNote(message: string): void {
+  if (!lines.length) return;
+  openCart();
+  const note = root?.querySelector('[data-checkout-note]');
+  if (note) note.textContent = message;
 }
 
 export function closeCart(): void {
@@ -127,21 +167,47 @@ function onClick(event: MouseEvent): void {
   const lineEl = target.closest<HTMLElement>('[data-line]');
   const line = lines.find((l) => l.key === lineEl?.dataset.line);
   const step = target.closest<HTMLElement>('[data-step]');
+  const checkoutButton = target.closest<HTMLButtonElement>('[data-checkout]');
   if (line && step) {
-    line.qty = Math.max(1, Math.min(9, line.qty + Number(step.dataset.step)));
+    line.qty = Math.max(1, Math.min(MAX_QTY, line.qty + Number(step.dataset.step)));
   } else if (line && target.closest('[data-remove]')) {
     lines = lines.filter((l) => l !== line);
     announce(`Usunięto z koszyka: ${line.name}, ${line.variant}.`);
-  } else if (target.closest('[data-checkout]')) {
-    announce('To projekt demonstracyjny – zamówienia nie są realizowane.');
-    const note = root?.querySelector('[data-checkout-note]');
-    if (note) note.textContent = 'To projekt demonstracyjny – zamówienia nie są realizowane.';
+  } else if (checkoutButton) {
+    void checkout(checkoutButton);
     return;
   } else {
     return;
   }
   save();
   render();
+}
+
+async function checkout(button: HTMLButtonElement): Promise<void> {
+  const note = root?.querySelector('[data-checkout-note]');
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Otwieram płatność…';
+  if (note) note.textContent = '';
+  track('begin_checkout', cartItems());
+
+  const request: CheckoutRequest = {
+    items: lines.map((l) => ({ slug: l.slug, size: l.size, qty: l.qty })),
+    returnTo: window.location.pathname,
+  };
+  try {
+    const response = await fetch('/api/checkout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(request) });
+    const data = (await response.json().catch(() => null)) as Partial<CheckoutResponse & ApiError> | null;
+    if (!response.ok || !data?.url) throw new Error(data?.error ?? 'Nie udało się przejść do płatności. Spróbuj ponownie.');
+    // Przycisk zostaje zablokowany do opuszczenia strony.
+    window.location.assign(data.url);
+  } catch (error) {
+    const message = error instanceof TypeError ? 'Brak połączenia z internetem. Spróbuj ponownie.' : error instanceof Error ? error.message : String(error);
+    button.disabled = false;
+    button.textContent = label;
+    if (note) note.textContent = message;
+    announce(message);
+  }
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -189,7 +255,7 @@ function render(): void {
             <div class="stepper" role="group" aria-label="Ilość: ${esc(l.name)}, ${esc(l.variant)}">
               <button type="button" data-step="-1" aria-label="Zmniejsz ilość"${l.qty <= 1 ? ' disabled' : ''}>−</button>
               <span aria-live="polite">${l.qty}</span>
-              <button type="button" data-step="1" aria-label="Zwiększ ilość"${l.qty >= 9 ? ' disabled' : ''}>+</button>
+              <button type="button" data-step="1" aria-label="Zwiększ ilość"${l.qty >= MAX_QTY ? ' disabled' : ''}>+</button>
             </div>
             <button type="button" class="cart-line__remove" data-remove>Usuń</button>
           </div>
@@ -203,6 +269,7 @@ function render(): void {
   const freeFrom = SHOP.freeShippingFrom;
   const missing = freeFrom === null ? 0 : Math.max(0, freeFrom - total);
   const progress = freeFrom ? Math.min(1, total / freeFrom) : 1;
+  const terms = pages.some((p) => p.slug === 'regulamin') ? ' Zamawiając, akceptujesz <a href="/regulamin" data-drawer-close>regulamin sklepu</a>.' : '';
   foot.innerHTML = `
     ${
       freeFrom === null
@@ -215,6 +282,7 @@ function render(): void {
     <p class="drawer__gift">Gratisowe próbki do każdego zamówienia</p>
     <p class="drawer__total"><span>Razem</span><strong>${formatPrice(total)}</strong></p>
     <button type="button" class="btn btn--primary btn--block" data-checkout>Przejdź do kasy</button>
-    <button type="button" class="btn btn--link btn--block" data-drawer-close>Kontynuuj zakupy</button>
-    <p class="drawer__note" data-checkout-note></p>`;
+    <p class="drawer__note" data-checkout-note></p>
+    <p class="drawer__legal">Dostawę wybierzesz i zapłacisz w kolejnym kroku, na stronie płatności Stripe.${terms}</p>
+    <button type="button" class="btn btn--link btn--block" data-drawer-close>Kontynuuj zakupy</button>`;
 }

@@ -2,7 +2,8 @@ import { guard, login, logout } from './auth';
 import * as db from './db';
 import { HttpError, json, readJson } from './http';
 import { deleteMedia, mediaKeys, uploadFile, uploadPhoto } from './media';
-import { idParam, validateCategory, validateOrder, validatePage, validateProduct, validateSettings } from './validate';
+import { getOrder, listOrders, updateOrder } from './orders';
+import { idParam, validateCategory, validateOrder, validateOrderUpdate, validatePage, validateProduct, validateSettings } from './validate';
 
 interface Context {
   request: Request;
@@ -135,6 +136,18 @@ const routes: [method: string, path: RegExp, handler: Handler][] = [
     async ({ env, params }) => {
       await db.deletePage(env.DB, idParam(params[0]));
       return json({ ok: true });
+    },
+  ],
+
+  ['GET', /^orders$/, async ({ env }) => json(await listOrders(env))],
+  ['GET', /^orders\/(\d+)$/, async ({ env, params }) => json(await getOrder(env.DB, idParam(params[0])))],
+  [
+    'PUT',
+    /^orders\/(\d+)$/,
+    async ({ request, env, params }) => {
+      const id = idParam(params[0]);
+      await updateOrder(env.DB, id, validateOrderUpdate(await readJson(request)));
+      return json(await getOrder(env.DB, id));
     },
   ],
 

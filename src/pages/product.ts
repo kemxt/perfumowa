@@ -436,7 +436,7 @@ function mountStage(main: HTMLElement, label: BottleLabel): () => void {
   };
 }
 
-type CartItem = Pick<CartLine, 'key' | 'variant' | 'price'>;
+type CartItem = Pick<CartLine, 'key' | 'size' | 'variant' | 'price'>;
 
 /** Wybór pojemności, ilość, suma, drugi obracany flakon i pływający pasek zakupu. */
 function mountBuy(main: HTMLElement, p: Product, label: BottleLabel): () => void {
@@ -470,7 +470,7 @@ function mountBuy(main: HTMLElement, p: Product, label: BottleLabel): () => void
   };
   const sizeLine = (): CartItem => {
     const size = selected();
-    return { key: `${p.slug}-${size.ml}`, variant: `${size.ml} ml`, price: size.price };
+    return { key: `${p.slug}-${size.ml}`, size: size.ml, variant: `${size.ml} ml`, price: size.price };
   };
 
   const onChange = () => {
@@ -484,7 +484,7 @@ function mountBuy(main: HTMLElement, p: Product, label: BottleLabel): () => void
       state.qty = Math.max(1, Math.min(9, state.qty + Number(qty.dataset.qty)));
       update(false);
     } else if (target.closest('[data-sample]')) {
-      add({ key: `${p.slug}-probka`, variant: `próbka ${SHOP.sample.ml} ml`, price: SHOP.sample.price }, 1);
+      add({ key: `${p.slug}-probka`, size: 'sample', variant: `próbka ${SHOP.sample.ml} ml`, price: SHOP.sample.price }, 1);
     }
   };
   const onSubmit = (event: SubmitEvent) => {

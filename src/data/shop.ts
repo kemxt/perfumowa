@@ -1,4 +1,5 @@
 import type { ShopSettings } from '../../shared/catalog';
+import { SAMPLE } from '../../shared/orders';
 
 /**
  * Warunki sklepu – jedno miejsce dla hero, koszyka, paska zakupu i danych strukturalnych.
@@ -10,7 +11,8 @@ export const SHOP = {
   freeShippingFrom: 300 as number | null,
   returnDays: 30,
   processingTime: '1–2 dni robocze',
-  sample: { ml: 2, price: 19 },
+  /** Cena próbki jest wspólna z kasą (Worker liczy ją z tego samego miejsca). */
+  sample: SAMPLE,
   /** Pojemność oznaczana jako „Najczęściej wybierana” i zaznaczana domyślnie. */
   popularMl: 50,
 };

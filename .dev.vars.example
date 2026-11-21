@@ -1,2 +1,6 @@
-# Lokalne sekrety dla `wrangler dev` (skopiuj do .dev.vars). Na produkcji: `npx wrangler secret put ADMIN_PASSWORD`.
+# Lokalne sekrety dla `wrangler dev` (skopiuj do .dev.vars). Na produkcji: `npx wrangler secret put NAZWA`.
 ADMIN_PASSWORD=zmien-mnie-lokalnie
+# Stripe – lokalnie tylko klucze TESTOWE (sk_test_… / rk_test_…): klucze live pobierają prawdziwe pieniądze.
+# Puste = kasa w sklepie pokazuje „Płatności nie są jeszcze włączone”.
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=

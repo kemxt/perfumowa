@@ -1,4 +1,5 @@
 import { PAYMENT_METHODS, type ShopSettings } from '../../shared/catalog';
+import { MAX_SHIPPING_OPTIONS } from '../../shared/orders';
 import { RequestError, api } from './api';
 import { esc, loadingMarkup, parseNumber, toast, type View } from './ui';
 
@@ -54,7 +55,11 @@ export function settingsView(): View {
       </div>`,
       )
       .join('')}
-    <button type="button" class="btn btn--quiet btn--small" data-add-method>+ Dodaj sposób dostawy</button>`;
+    ${
+      state.shipping.methods.length < MAX_SHIPPING_OPTIONS
+        ? '<button type="button" class="btn btn--quiet btn--small" data-add-method>+ Dodaj sposób dostawy</button>'
+        : `<p class="muted small">Kasa Stripe pokazuje najwyżej ${MAX_SHIPPING_OPTIONS} sposobów dostawy.</p>`
+    }`;
 
   const paymentsMarkup = () => {
     const all = [...PAYMENT_METHODS, ...state.payments.methods.filter((m) => !PAYMENT_METHODS.includes(m))];
@@ -108,6 +113,7 @@ export function settingsView(): View {
 
         <section class="card settings-grid__wide">
           <h2 class="card__title">Dostawa</h2>
+          <p class="muted small card__intro">Klient wybiera sposób dostawy w kasie Stripe; ceny stąd trafiają tam bez zmian. Gdy nazwa zawiera „paczkomat”, kasa zapyta też o kod paczkomatu.</p>
           <div class="methods" data-field="shipping.methods">
             <p class="field__error" data-error></p>
             <div data-methods>${methodsMarkup()}</div>
@@ -126,6 +132,7 @@ export function settingsView(): View {
 
         <section class="card">
           <h2 class="card__title">Płatności</h2>
+          <p class="muted small card__intro">Lista dla klientów na stronie Dostawa i płatności. Same metody (BLIK, karta, Przelewy24, Google Pay, Apple Pay) włączasz w panelu Stripe: Ustawienia → Metody płatności. Kasa nie obsługuje przelewu tradycyjnego ani płatności przy odbiorze.</p>
           <div data-field="payments.methods"><p class="field__error" data-error></p><div data-payments>${paymentsMarkup()}</div></div>
           ${field('payments.note', 'Dodatkowe informacje', area('payments.note', state.payments.note, 3), 'np. operator płatności, termin zapłaty przy przelewie tradycyjnym.')}
         </section>

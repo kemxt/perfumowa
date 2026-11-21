@@ -11,7 +11,7 @@ declare global {
   }
 }
 
-export type AnalyticsEvent = 'view_item' | 'select_size' | 'add_to_cart' | 'add_sample' | 'open_cart';
+export type AnalyticsEvent = 'view_item' | 'select_size' | 'add_to_cart' | 'add_sample' | 'open_cart' | 'begin_checkout' | 'purchase';
 
 export interface AnalyticsItem {
   item_id: string;
@@ -35,10 +35,11 @@ export function analyticsItem(product: Product, variant: { label: string; price:
   };
 }
 
-export function track(event: AnalyticsEvent, items: AnalyticsItem[] = [], extra: Record<string, unknown> = {}): void {
+/** `ecommerce` uzupełnia obiekt ecommerce, np. { transaction_id, shipping, value } przy purchase. */
+export function track(event: AnalyticsEvent, items: AnalyticsItem[] = [], extra: Record<string, unknown> = {}, ecommerce: Record<string, unknown> = {}): void {
   const value = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const layer = (window.dataLayer ??= []);
   layer.push({ ecommerce: null }); // zalecane przez GA4: czyści poprzedni obiekt ecommerce
-  layer.push({ event, ecommerce: { currency: SHOP.currency, value, items }, ...extra });
+  layer.push({ event, ecommerce: { currency: SHOP.currency, value, items, ...ecommerce }, ...extra });
   if (import.meta.env.DEV) console.debug(`[analytics] ${event}`, { value, items, ...extra });
 }

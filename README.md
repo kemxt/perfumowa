@@ -5,8 +5,8 @@ Sklep z perfumami (Vite + TypeScript) i panel admina na jednym Workerze Cloudfla
 | Ścieżka        | Co to                                                        |
 | -------------- | ------------------------------------------------------------ |
 | `src/`         | strona sklepu                                                |
-| `src/admin/`   | panel admina pod `/admin/` (produkty, ceny, pojemności, kategorie, zdjęcia, opisy) |
-| `worker/`      | Worker: `/api/catalog`, `/api/admin/*`, `/media/*`           |
+| `src/admin/`   | panel admina pod `/admin/` (zamówienia, produkty, ceny, pojemności, kategorie, zdjęcia, opisy) |
+| `worker/`      | Worker: `/api/catalog`, `/api/checkout`, `/api/admin/*`, `/media/*`, webhook `/admin/completed` |
 | `shared/`      | typy API wspólne dla Workera, sklepu i panelu                |
 | `migrations/`  | schemat bazy D1 i dane startowe (seed)                       |
 
@@ -40,6 +40,38 @@ wspólne dla obu Workerów – dane wpisane w wersji testowej są od razu danymi
 Przy pierwszym `npm run deploy` Worker `perfumowa` potrzebuje też hasła:
 `npx wrangler secret put ADMIN_PASSWORD` (każdy Worker ma własne).
 
+## Płatności (Stripe)
+
+Kasa to **Stripe Checkout**: koszyk wysyła pozycje na `POST /api/checkout`, Worker liczy ceny
+z bazy, zapisuje zamówienie (`pending`) i przekierowuje klienta do kasy Stripe. Tam klient
+podaje adres, wybiera dostawę (sposoby i ceny z Ustawień, darmowa dostawa też) i płaci.
+Po płatności wraca na `/kasa/dziekujemy`, a Stripe wysyła webhook na `/admin/completed` –
+zamówienie dostaje status „Do wysłania” i pojawia się w panelu w zakładce **Zamówienia**.
+
+Sekrety Workera `perfumowa` (nie trafiają do repo):
+
+```sh
+npx wrangler secret put STRIPE_SECRET_KEY       # sk_live_… albo ograniczony rk_live_…
+npx wrangler secret put STRIPE_WEBHOOK_SECRET   # whsec_… z panelu Stripe (Webhooks)
+```
+
+W panelu Stripe:
+
+- **Webhook** `https://perfumowaaura.com/admin/completed`, zdarzenia: `checkout.session.completed`,
+  `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
+  `checkout.session.expired`.
+- **Klucz ograniczony (rk_…)** potrzebuje zapisu dla *Checkout Sessions* oraz – bo produkty
+  i stawki dostawy powstają w locie – dla *Products*, *Prices* i *Shipping rates*. Gdy czegoś
+  brakuje, kasa pokazuje „Nie udało się połączyć z systemem płatności”, a dokładny komunikat
+  Stripe jest w logach Workera (Cloudflare → Workers → perfumowa → Logs).
+- **Metody płatności** (BLIK, karta, Przelewy24, Google Pay, Apple Pay): Settings → Payment methods.
+- **Potwierdzenia e-mail** dla klientów: Settings → Customer emails → Successful payments.
+- **Zwroty pieniędzy** robisz w Stripe przy płatności, potem w panelu sklepu status „Anulowane”.
+
+Lokalnie i na `perfumowa-test` używaj kluczy testowych (`sk_test_…`, karta 4242 4242 4242 4242);
+bez klucza kasa pokazuje „Płatności nie są jeszcze włączone”. Webhooki Stripe docierają tylko
+na produkcję – lokalnie status ustawia strona podziękowania, która sama pyta Stripe o sesję.
+
 ## Pierwsze wdrożenie na nowym koncie (jednorazowo)
 
 Na koncie Cloudflare, na którym ma stać Worker `perfumowa`:
@@ -57,11 +89,14 @@ inaczej sklep przez chwilę działałby na pustej bazie.
 
 ## Na co dzień
 
+- **Zamówienia**: domyślnie opłacone; „Do wysłania” → wpisz numer przesyłki i ustaw „Wysłane”.
+  Nieopłacone i porzucone kasy są w filtrze „Nieopłacone i porzucone”.
 - Produkty, strony i ustawienia edytujesz w panelu: zapisane zmiany widać w sklepie od razu.
 - **Katalog** (`/perfumy`): zakładki z kategorii (Damskie, Męskie, Unisex) i Nowości, filtr pory
   roku, wyszukiwanie po nazwie i nutach. Pora roku, „Nowość” i dostępność pojemności ustawiasz
   w edytorze produktu.
-- **Ustawienia**: kontakt, godziny obsługi, dane firmy, sposoby i koszty dostawy, darmowa dostawa,
+- **Ustawienia**: kontakt, godziny obsługi, dane firmy, sposoby i koszty dostawy (najwyżej 5 – tyle
+  pokazuje kasa Stripe; nazwa z „paczkomat” dodaje w kasie pole na kod paczkomatu), darmowa dostawa,
   czas realizacji, śledzenie przesyłki, metody płatności, dni na zwrot.
 - **Strony**: Kontakt, Dostawa i płatności (część z ustawień + własny tekst) oraz dokumenty:
   regulamin, polityka prywatności, cookies, zwroty, reklamacje, formularz odstąpienia. Treść to

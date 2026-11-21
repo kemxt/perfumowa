@@ -1,12 +1,13 @@
 import './admin.css';
 import { RequestError, api, setUnauthorizedHandler } from './api';
 import { categoriesView } from './categories';
+import { orderDetailView, ordersListView } from './orders';
 import { pageEditorView, pagesListView } from './pages';
 import { productEditorView, productListView } from './products';
 import { settingsView } from './settings';
 import { esc, toast, type View } from './ui';
 
-/** Panel admina: hash routing (#/produkty, #/produkty/12, #/kategorie, #/strony, #/ustawienia), sesja w ciasteczku. */
+/** Panel admina: hash routing (#/zamowienia, #/produkty, #/produkty/12, #/kategorie, #/strony, #/ustawienia), sesja w ciasteczku. */
 
 const root = document.getElementById('admin');
 if (!root) throw new Error('Brak #admin');
@@ -15,6 +16,7 @@ root.innerHTML = `
   <header class="topbar">
     <a class="topbar__brand" href="#/produkty">Aura <span>panel</span></a>
     <nav class="topbar__nav" aria-label="Sekcje panelu">
+      <a href="#/zamowienia" data-nav="zamowienia">Zamówienia</a>
       <a href="#/produkty" data-nav="produkty">Produkty</a>
       <a href="#/kategorie" data-nav="kategorie">Kategorie</a>
       <a href="#/strony" data-nav="strony">Strony</a>
@@ -62,6 +64,9 @@ function resolve(hash: string): View {
   if (page) return pageEditorView(page[1] === 'nowa' ? null : Number(page[1]));
   if (path === 'strony') return pagesListView();
   if (path === 'ustawienia') return settingsView();
+  const order = path.match(/^zamowienia\/(\d+)$/);
+  if (order) return orderDetailView(Number(order[1]));
+  if (path === 'zamowienia') return ordersListView();
   return productListView();
 }
 

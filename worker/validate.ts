@@ -16,6 +16,7 @@ import {
   type ShippingMethod,
   type ShopSettings,
 } from '../shared/catalog';
+import { MANUAL_STATUSES, MAX_SHIPPING_OPTIONS, isManualStatus, type AdminOrderInput } from '../shared/orders';
 import { HttpError } from './http';
 
 /** Zbiera błędy per pole i na końcu rzuca jednym 422 z mapą `fields`. */
@@ -249,7 +250,8 @@ export function validateSettings(raw: unknown): ShopSettings {
   const email = c.text(contact.email, 'contact.email', { max: 120 });
   if (email && !EMAIL.test(email)) c.fail('contact.email', 'Nieprawidłowy adres e-mail.');
 
-  const methods: ShippingMethod[] = c.list(shipping.methods, 'shipping.methods', 10).map((item, i) => {
+  // Każdy sposób dostawy to opcja w kasie Stripe, a ta pokazuje najwyżej 5.
+  const methods: ShippingMethod[] = c.list(shipping.methods, 'shipping.methods', MAX_SHIPPING_OPTIONS).map((item, i) => {
     const m = c.object(item);
     return {
       name: c.text(m.name, `shipping.methods.${i}.name`, { max: 80, required: true }),
@@ -310,4 +312,14 @@ export function validatePage(raw: unknown): AdminPageInput {
   const page: AdminPageInput = { title, slug, body, published: input.published === true };
   c.done();
   return page;
+}
+
+export function validateOrderUpdate(raw: unknown): AdminOrderInput {
+  const c = new Checker();
+  const input = c.object(raw);
+  const status = typeof input.status === 'string' && isManualStatus(input.status) ? input.status : MANUAL_STATUSES[0];
+  if (status !== input.status) c.fail('status', 'Nieprawidłowy status.');
+  const tracking = c.text(input.tracking, 'tracking', { max: 100 });
+  c.done();
+  return { status, tracking };
 }
