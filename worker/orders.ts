@@ -205,7 +205,7 @@ function sessionParams(orderId: number, lines: PricedLine[], shipping: OfferedSh
   return {
     mode: 'payment',
     // Formularz Stripe osadzony na /kasa – klient nie opuszcza sklepu.
-    ui_mode: 'embedded',
+    ui_mode: 'embedded_page',
     locale: 'pl',
     submit_type: 'pay',
     client_reference_id: String(orderId),
