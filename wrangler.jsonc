@@ -27,6 +27,11 @@
       "id": "e87801eb02754e4dbe8c97878ef3aca7"
     }
   ],
+  // Klucz publiczny Stripe (pk_… jest jawny – trafia do przeglądarki). Zmienne nie przechodzą do env.test,
+  // więc wersja testowa bez własnego klucza ma wyłączoną kasę.
+  "vars": {
+    "STRIPE_PUBLISHABLE_KEY": "pk_live_51UdB4zHX1GoJDbswMNdAjiNEvpe595kQxIeHSNblNQlIj83uUrX8ERwA0czhRf58QsaFfBzIr7AXPUQdPfI2fjSo00WAE6M4zf"
+  },
   // Sekrety (poza repo, `npx wrangler secret put NAZWA`, każdy Worker osobno):
   //   ADMIN_PASSWORD         hasło do panelu
   //   STRIPE_SECRET_KEY      klucz API Stripe (sk_… albo ograniczony rk_…)

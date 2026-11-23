@@ -4,3 +4,5 @@ ADMIN_PASSWORD=zmien-mnie-lokalnie
 # Puste = kasa w sklepie pokazuje „Płatności nie są jeszcze włączone”.
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
+# Klucz publiczny z wrangler.jsonc jest live – lokalnie nadpisz go testowym pk_test_…
+# STRIPE_PUBLISHABLE_KEY=

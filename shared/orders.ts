@@ -23,13 +23,13 @@ export interface CheckoutItem {
 /** POST /api/checkout */
 export interface CheckoutRequest {
   items: CheckoutItem[];
-  /** Ścieżka, na którą Stripe wraca po przerwaniu płatności, np. /perfumy/figowy-sad. */
-  returnTo?: string;
 }
 
-/** Adres kasy Stripe, na który sklep przekierowuje klienta. */
+/** Dane do osadzenia formularza Stripe (Embedded Checkout) na stronie /kasa. */
 export interface CheckoutResponse {
-  url: string;
+  clientSecret: string;
+  /** Klucz publiczny pk_… – ten sam tryb (live/test) co klucz tajny. */
+  publishableKey: string;
 }
 
 export const ORDER_STATUSES = ['pending', 'paid', 'shipped', 'cancelled', 'failed', 'expired'] as const;

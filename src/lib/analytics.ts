@@ -11,7 +11,7 @@ declare global {
   }
 }
 
-export type AnalyticsEvent = 'view_item' | 'select_size' | 'add_to_cart' | 'add_sample' | 'open_cart' | 'begin_checkout' | 'purchase';
+export type AnalyticsEvent = 'view_item' | 'select_size' | 'add_to_cart' | 'add_sample' | 'open_cart' | 'view_cart' | 'begin_checkout' | 'purchase';
 
 export interface AnalyticsItem {
   item_id: string;

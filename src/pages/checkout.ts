@@ -53,7 +53,7 @@ function content(result: CheckoutResult, stillPending: boolean): { title: string
       return {
         title: 'Płatność nie doszła do skutku',
         text: 'Zamówienie nie zostało opłacone. Produkty wciąż czekają w koszyku – możesz spróbować ponownie.',
-        actions: `<button type="button" class="btn btn--primary" data-cart-open>Otwórz koszyk</button>`,
+        actions: `<a class="btn btn--primary" href="/koszyk">Wróć do koszyka</a>`,
       };
   }
 }

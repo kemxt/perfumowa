@@ -1,12 +1,14 @@
 import './styles/main.css';
 import { categories, loadCatalog, pages, productUrl, products, settings } from './data/products';
 import { esc } from './lib/dom';
-import { initCart, openCartWithNote } from './lib/cart';
+import { initCart } from './lib/cart';
 import { initSmoothScroll } from './lib/smooth-scroll';
+import { cartPage } from './pages/cart';
 import { catalogPage } from './pages/catalog';
 import { checkoutResultPage } from './pages/checkout';
 import { contentPage } from './pages/content';
 import { notFoundPage } from './pages/not-found';
+import { paymentPage } from './pages/payment';
 import { productPage } from './pages/product';
 import { Router } from './router';
 
@@ -65,15 +67,6 @@ function renderFooter(): void {
 renderFooter();
 initCart();
 
-// Powrót z kasy Stripe bez płatności (cancel_url): czyścimy adres i pokazujemy koszyk.
-const search = new URLSearchParams(window.location.search);
-const paymentCancelled = search.get('platnosc') === 'anulowana';
-if (paymentCancelled) {
-  search.delete('platnosc');
-  const query = search.toString();
-  history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-}
-
 new Router(
   view,
   [
@@ -81,11 +74,11 @@ new Router(
     // Etap 1: bez strony głównej – start od pierwszego zapachu. Do podmiany w etapie 2.
     { path: /^\/$/, page: () => (products[0] ? productUrl(products[0]) : '/perfumy') },
     { path: /^\/perfumy\/?$/, page: () => catalogPage() },
+    { path: /^\/koszyk\/?$/, page: () => cartPage() },
+    { path: /^\/kasa\/?$/, page: () => paymentPage() },
     { path: /^\/kasa\/dziekujemy\/?$/, page: () => checkoutResultPage() },
     // Strony z panelu: /regulamin, /kontakt, /dostawa-i-platnosci…
     { path: /^\/([a-z0-9-]+)\/?$/, page: ([slug]) => (pages.some((p) => p.slug === slug) ? contentPage(slug) : notFoundPage()) },
   ],
   notFoundPage,
 ).start();
-
-if (paymentCancelled) openCartWithNote('Płatność została przerwana – nic nie pobraliśmy. Możesz spróbować ponownie.');

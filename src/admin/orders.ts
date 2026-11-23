@@ -37,7 +37,7 @@ const FILTERS: { value: string; label: string; statuses: OrderStatus[] }[] = [
 
 function paymentsNote(payments: PaymentsStatus): string {
   if (!payments.ready) {
-    return `<p class="note note--warn">Płatności są wyłączone: Worker nie ma klucza Stripe. Ustaw go poleceniem <code>npx wrangler secret put STRIPE_SECRET_KEY</code> – do tego czasu kasa w sklepie pokazuje „Płatności nie są jeszcze włączone”.</p>`;
+    return `<p class="note note--warn">Płatności są wyłączone: brakuje klucza Stripe albo klucze są z różnych trybów (live/test). Klucz tajny: <code>npx wrangler secret put STRIPE_SECRET_KEY</code>, publiczny (pk_…): <code>STRIPE_PUBLISHABLE_KEY</code> w wrangler.jsonc. Do tego czasu kasa w sklepie pokazuje „Płatności nie są jeszcze włączone”.</p>`;
   }
   const notes: string[] = [];
   if (!payments.webhook) {

@@ -42,13 +42,15 @@ Przy pierwszym `npm run deploy` Worker `perfumowa` potrzebuje też hasła:
 
 ## Płatności (Stripe)
 
-Kasa to **Stripe Checkout**: koszyk wysyła pozycje na `POST /api/checkout`, Worker liczy ceny
-z bazy, zapisuje zamówienie (`pending`) i przekierowuje klienta do kasy Stripe. Tam klient
-podaje adres, wybiera dostawę (sposoby i ceny z Ustawień, darmowa dostawa też) i płaci.
+Koszyk ma stronę `/koszyk` (plus panel boczny po dodaniu produktu), płatność jest na `/kasa`:
+formularz **Stripe Embedded Checkout** osadzony w sklepie. Strona kasy wysyła pozycje na
+`POST /api/checkout`, Worker liczy ceny z bazy, zapisuje zamówienie (`pending`) i zwraca dane
+formularza. Klient podaje adres, wybiera dostawę (sposoby i ceny z Ustawień, darmowa dostawa też) i płaci.
 Po płatności wraca na `/kasa/dziekujemy`, a Stripe wysyła webhook na `/admin/completed` –
 zamówienie dostaje status „Do wysłania” i pojawia się w panelu w zakładce **Zamówienia**.
 
-Sekrety Workera `perfumowa` (nie trafiają do repo):
+Klucz publiczny `STRIPE_PUBLISHABLE_KEY` (pk_…, jawny) jest w `vars` w `wrangler.jsonc` i musi być
+z tego samego trybu (live/test) co klucz tajny. Sekrety Workera `perfumowa` (nie trafiają do repo):
 
 ```sh
 npx wrangler secret put STRIPE_SECRET_KEY       # sk_live_… albo ograniczony rk_live_…
@@ -66,6 +68,7 @@ W panelu Stripe:
   Stripe jest w logach Workera (Cloudflare → Workers → perfumowa → Logs).
 - **Metody płatności** (BLIK, karta, Przelewy24, Google Pay, Apple Pay): Settings → Payment methods.
 - **Potwierdzenia e-mail** dla klientów: Settings → Customer emails → Successful payments.
+- **Wygląd formularza** w kasie (kolory, czcionka, logo): Settings → Branding.
 - **Zwroty pieniędzy** robisz w Stripe przy płatności, potem w panelu sklepu status „Anulowane”.
 
 Lokalnie i na `perfumowa-test` używaj kluczy testowych (`sk_test_…`, karta 4242 4242 4242 4242);

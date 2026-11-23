@@ -34,8 +34,8 @@ import {
  * Zamówienia i płatności (Stripe Checkout):
  *
  * 1. POST /api/checkout – ceny i dostępność liczymy z bazy (nie z koszyka), zapisujemy zamówienie
- *    'pending' i tworzymy sesję Checkout. Sklep przekierowuje klienta do kasy Stripe.
- * 2. W kasie klient podaje adres, wybiera dostawę i płaci metodą włączoną w panelu Stripe
+ *    'pending' i tworzymy sesję Checkout (embedded). Strona /kasa osadza formularz Stripe.
+ * 2. W formularzu klient podaje adres, wybiera dostawę i płaci metodą włączoną w panelu Stripe
  *    (BLIK, karta, Przelewy24, Google Pay, Apple Pay…).
  * 3. Stripe wysyła webhook na POST /admin/completed → zamówienie 'paid' z adresem i dostawą.
  *    Strona podziękowania (GET /api/checkout/:session) sprawdza sesję też sama, gdyby webhook
@@ -126,7 +126,7 @@ async function findOrder(db: D1Database, where: 'id' | 'stripe_session_id', valu
 // Kasa
 // ---------------------------------------------------------------------------
 
-function validateCheckout(raw: unknown): { items: CheckoutItem[]; returnTo: string } {
+function validateCheckout(raw: unknown): CheckoutItem[] {
   const input = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const list: unknown[] = Array.isArray(input.items) ? input.items : [];
   if (!list.length) throw new HttpError(422, 'Koszyk jest pusty.');
@@ -148,10 +148,7 @@ function validateCheckout(raw: unknown): { items: CheckoutItem[]; returnTo: stri
     seen.add(`${slug}:${size}`);
     return { slug, size, qty };
   });
-
-  // Tylko ścieżka w obrębie sklepu – adres powrotu budujemy z naszej domeny.
-  const returnTo = typeof input.returnTo === 'string' && /^\/[a-z0-9/-]{0,200}$/.test(input.returnTo) ? input.returnTo : '/perfumy';
-  return { items, returnTo };
+  return items;
 }
 
 /** Ceny i dostępność z bazy – ceny z koszyka w przeglądarce nie mają znaczenia. */
@@ -189,7 +186,7 @@ function shippingOptions(settings: ShopSettings, subtotal: number): OfferedShipp
   return methods.slice(0, MAX_SHIPPING_OPTIONS).map((m) => ({ name: m.name, time: m.time, price: free ? 0 : Math.round(m.price * 100) }));
 }
 
-function sessionParams(orderId: number, lines: PricedLine[], shipping: OfferedShipping[], origin: string, returnTo: string): Record<string, unknown> {
+function sessionParams(orderId: number, lines: PricedLine[], shipping: OfferedShipping[], origin: string): Record<string, unknown> {
   const number = orderNumber(orderId);
   const metadata = { order_id: String(orderId), order_number: number };
   const customFields: Record<string, unknown>[] = [];
@@ -207,6 +204,8 @@ function sessionParams(orderId: number, lines: PricedLine[], shipping: OfferedSh
 
   return {
     mode: 'payment',
+    // Formularz Stripe osadzony na /kasa – klient nie opuszcza sklepu.
+    ui_mode: 'embedded',
     locale: 'pl',
     submit_type: 'pay',
     client_reference_id: String(orderId),
@@ -223,8 +222,7 @@ function sessionParams(orderId: number, lines: PricedLine[], shipping: OfferedSh
     phone_number_collection: { enabled: true },
     custom_fields: customFields,
     expires_at: Math.floor(Date.now() / 1000) + SESSION_TTL,
-    success_url: `${origin}/kasa/dziekujemy?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}${returnTo}?platnosc=anulowana`,
+    return_url: `${origin}/kasa/dziekujemy?session_id={CHECKOUT_SESSION_ID}`,
   };
 }
 
@@ -232,7 +230,7 @@ function sessionParams(orderId: number, lines: PricedLine[], shipping: OfferedSh
 export async function createCheckout(request: Request, env: Env): Promise<Response> {
   // Formularz z innej strony nie wyśle JSON-a bez CORS – nie da się zakładać zamówień cudzymi rękami.
   if (!(request.headers.get('content-type') ?? '').includes('application/json')) throw new HttpError(415, 'Oczekiwano JSON.');
-  const { items, returnTo } = validateCheckout(await readJson(request));
+  const items = validateCheckout(await readJson(request));
   if (!stripeConfigured(env)) throw new HttpError(503, 'Płatności nie są jeszcze włączone. Spróbuj później albo napisz do nas.');
 
   const db = env.DB;
@@ -254,15 +252,16 @@ export async function createCheckout(request: Request, env: Env): Promise<Respon
 
   let session: CheckoutSession;
   try {
-    session = await stripe<CheckoutSession>(env, 'POST', 'checkout/sessions', sessionParams(orderId, lines, shipping, new URL(request.url).origin, returnTo), `order-${orderId}`);
+    session = await stripe<CheckoutSession>(env, 'POST', 'checkout/sessions', sessionParams(orderId, lines, shipping, new URL(request.url).origin), `order-${orderId}`);
   } catch (error) {
     // Bez sesji zamówienie nie ma jak zostać opłacone – nie zaśmiecamy nim panelu.
     await db.batch([db.prepare('DELETE FROM order_items WHERE order_id = ?').bind(orderId), db.prepare('DELETE FROM orders WHERE id = ?').bind(orderId)]);
     throw error;
   }
-  if (!session.url) throw new HttpError(502, 'Nie udało się otworzyć kasy. Spróbuj ponownie.');
+  if (!session.client_secret) throw new HttpError(502, 'Nie udało się otworzyć kasy. Spróbuj ponownie.');
   await db.prepare('UPDATE orders SET stripe_session_id = ? WHERE id = ?').bind(session.id, orderId).run();
-  return json({ url: session.url } satisfies CheckoutResponse);
+  // stripeConfigured() sprawdził, że klucz publiczny jest ustawiony.
+  return json({ clientSecret: session.client_secret, publishableKey: env.STRIPE_PUBLISHABLE_KEY ?? '' } satisfies CheckoutResponse);
 }
 
 // ---------------------------------------------------------------------------

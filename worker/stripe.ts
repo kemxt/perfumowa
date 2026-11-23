@@ -2,7 +2,8 @@ import { HttpError } from './http';
 
 /**
  * Minimalny klient Stripe na fetch i Web Crypto (bez SDK): sesje Checkout i podpis webhooków.
- * Sekrety Workera: STRIPE_SECRET_KEY (sk_… albo ograniczony rk_…) i STRIPE_WEBHOOK_SECRET (whsec_…).
+ * Sekrety Workera: STRIPE_SECRET_KEY (sk_… albo ograniczony rk_…) i STRIPE_WEBHOOK_SECRET (whsec_…);
+ * klucz publiczny STRIPE_PUBLISHABLE_KEY (pk_…) jest zmienną w wrangler.jsonc.
  */
 
 const API = 'https://api.stripe.com/v1';
@@ -13,9 +14,16 @@ const encoder = new TextEncoder();
 
 export const PAYMENT_ERROR = 'Nie udało się połączyć z systemem płatności. Spróbuj ponownie za chwilę.';
 
-export const stripeConfigured = (env: Env) => /^(sk|rk)_(live|test)_\w+$/.test(env.STRIPE_SECRET_KEY ?? '');
+const SECRET_KEY = /^(?:sk|rk)_(live|test)_\w+$/;
+const PUBLISHABLE_KEY = /^pk_(live|test)_\w+$/;
+
+/** Oba klucze ustawione i z tego samego trybu (pk_live z sk_test się nie dogada). */
+export const stripeMode = (env: Env): 'live' | 'test' | null => {
+  const mode = SECRET_KEY.exec(env.STRIPE_SECRET_KEY ?? '')?.[1];
+  return mode && mode === PUBLISHABLE_KEY.exec(env.STRIPE_PUBLISHABLE_KEY ?? '')?.[1] ? (mode as 'live' | 'test') : null;
+};
+export const stripeConfigured = (env: Env) => stripeMode(env) !== null;
 export const webhookConfigured = (env: Env) => (env.STRIPE_WEBHOOK_SECRET ?? '').startsWith('whsec_');
-export const stripeMode = (env: Env) => (stripeConfigured(env) ? (env.STRIPE_SECRET_KEY.includes('_live_') ? 'live' : 'test') : null);
 
 export interface StripeAddress {
   line1: string | null;
@@ -30,7 +38,8 @@ type Expandable = string | { id: string };
 /** Pola sesji Checkout, z których korzysta sklep. */
 export interface CheckoutSession {
   id: string;
-  url: string | null;
+  /** Dla ui_mode=embedded – przekazywany do Stripe.js na stronie kasy. */
+  client_secret: string | null;
   status: 'open' | 'complete' | 'expired' | null;
   payment_status: 'paid' | 'unpaid' | 'no_payment_required';
   amount_total: number | null;

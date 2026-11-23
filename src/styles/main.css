@@ -364,7 +364,8 @@ kbd {
   transition: border-color 0.2s;
 }
 
-.cart:hover {
+.cart:hover,
+.cart[aria-current='page'] {
   border-bottom-color: currentColor;
 }
 
@@ -2067,6 +2068,113 @@ html.is-scroll-locked {
 
 .btn--link:hover {
   text-decoration-color: transparent;
+}
+
+/* --- Koszyk i kasa (/koszyk, /kasa) ------------------------------------ */
+
+.shop-page {
+  min-height: 80svh;
+  padding-block: calc(var(--header-h) + clamp(2.5rem, 6vw, 5rem)) var(--section);
+}
+
+.shop-page__inner {
+  display: grid;
+  gap: 1.25rem;
+  align-content: start;
+  max-width: 72rem;
+}
+
+.shop-page__back {
+  justify-self: start;
+  font-size: 0.875rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.shop-page__back:hover {
+  color: var(--fg);
+}
+
+.shop-page__text {
+  max-width: 52ch;
+  color: var(--muted);
+}
+
+.shop-page .btn--quiet {
+  justify-self: start;
+}
+
+.cart-page {
+  display: grid;
+  gap: 2rem;
+  align-items: start;
+}
+
+.cart-page__lines {
+  border-top: 1px solid var(--line);
+}
+
+.cart-page__lines .cart-line {
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+}
+
+.cart-page__lines .cart-line__img {
+  width: 4.5rem;
+  height: 6.75rem;
+}
+
+.cart-page__summary {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+}
+
+@media (min-width: 56rem) {
+  .cart-page {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+    gap: 3rem;
+  }
+
+  .cart-page__summary {
+    position: sticky;
+    top: calc(var(--header-h) + 1.5rem);
+  }
+}
+
+.cart-line__name a {
+  text-decoration: none;
+}
+
+.cart-line__name a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* Formularz Stripe ma własne (jasne) tło – ustawiasz je w Stripe: Settings → Branding. */
+.payment {
+  min-height: 32rem;
+  padding-block: 0.5rem;
+  background: #fff;
+  color: #141413;
+}
+
+.payment__status {
+  padding: 2rem 1.5rem;
+}
+
+.payment--error {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+  min-height: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+}
+
+.payment--error .payment__status {
+  padding: 0;
 }
 
 /* --- Wynik płatności (/kasa/dziekujemy) -------------------------------- */
